@@ -1,0 +1,3 @@
+#!/bin/sh
+# Validate staged contents without printing credentials.
+exec node --env-file-if-exists=.env scripts/security-check.mjs --git-only

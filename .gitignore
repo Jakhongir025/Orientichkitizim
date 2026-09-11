@@ -1,0 +1,26 @@
+node_modules/
+.next/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+*.log
+coverage/
+
+.next-production/
+
+.local/
+
+# Private exports, database backups and service credentials
+backups/
+output/
+tmp/
+secrets/
+credentials/
+*.dump
+*.backup
+*.pem
+*.key
+*service-account*.json
+credentials.json
+.DS_Store

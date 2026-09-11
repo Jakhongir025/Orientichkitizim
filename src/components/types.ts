@@ -1,0 +1,166 @@
+export type Profile = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  position: string;
+  officeId: string;
+  telegramUserId?: string | null;
+  telegramChatId?: string | null;
+  telegramUsername?: string | null;
+  telegramVerified: boolean;
+  office?: Office;
+};
+export type User = {
+  id: string;
+  login: string;
+  active: boolean;
+  role: { id: string; name: string; permissions: string[] };
+  profile: Profile | null;
+};
+export type Office = {
+  id: string;
+  name: string;
+  telegramChatId: string | null;
+};
+export type Car = {
+  imageData?: string | null;
+  id: string;
+  brand: string;
+  model: string;
+  year: number;
+  plateNumber: string;
+  legalPlateNumber?: string | null;
+  vin?: string | null;
+  color: string;
+  engine: string;
+  mileage: number;
+  status: string;
+  location: string;
+  notes?: string | null;
+  services?: Service[];
+  documents?: Document[];
+  activity?: Audit[];
+  statusHistory?: {
+    id: string;
+    fromStatus: string;
+    toStatus: string;
+    createdAt: string;
+  }[];
+};
+export type Named = { id: string; name: string };
+export type Service = {
+  id: string;
+  car: Car;
+  serviceType: Named;
+  employee: User;
+  date: string;
+  mileage: number;
+  notes: string | null;
+};
+export type Document = {
+  id: string;
+  carId: string;
+  car: Car;
+  documentTypeId: string;
+  documentType: Named;
+  number: string;
+  company: string | null;
+  startDate: string;
+  expiryDate: string;
+  responsibleId: string;
+  responsible: User;
+  fileUrl?: string | null;
+  recipients: { employeeId: string }[];
+  remainingDays?: number;
+};
+export type Attendance = {
+  earlyLeaveReason?: string | null;
+  id: string;
+  userId: string;
+  user: User;
+  date: string;
+  checkIn: string;
+  checkOut: string | null;
+  checkInTimezone: string;
+  checkOutTimezone: string | null;
+  checkInRecordedAt: string;
+  checkOutRecordedAt: string | null;
+  status: string;
+  lateReason: string | null;
+};
+export type Report = {
+  id: string;
+  employee: User;
+  date: string;
+  description: string;
+  expenseAmount: string;
+  expenseNotes?: string | null;
+  car: Car | null;
+};
+export type Notice = {
+  id: string;
+  title: string;
+  message: string;
+  status: string;
+  createdAt: string;
+  readAt: string | null;
+  lastError: string | null;
+};
+export type Audit = {
+  id: string;
+  user: User;
+  action: string;
+  entityType: string;
+  entityId: string;
+  oldValue: unknown;
+  newValue: unknown;
+  timestamp: string;
+};
+export type Rental = {
+  id: string;
+  customerName: string;
+  phone: string;
+  passport?: string | null;
+  passportDetails?: string | null;
+  rentalStart: string;
+  rentalEnd: string;
+  car: Car;
+  contractNumber: string;
+  issuedBy: string | null;
+  acceptedBy: string | null;
+  notes?: string | null;
+};
+export type Lookups = {
+  cars: Car[];
+  employees: User[];
+  roles: Named[];
+  offices: Office[];
+  serviceTypes: Named[];
+  documentTypes: Named[];
+};
+export type DashboardData = {
+  totalCars: number;
+  activeEmployees: number;
+  attendance: Attendance[];
+  carsInService: number;
+  expiring: Document[];
+  expired: number;
+  tasks: Report[];
+  services: Service[];
+  notifications: Notice[];
+  activities: number;
+  date: string;
+  myAttendance: Attendance | null;
+};
+export type Sheet = {
+  id: string;
+  name: string;
+  sheetId: string;
+  range: string;
+  mapping: Record<string, number>;
+  enabled: boolean;
+  lastSyncAt: string | null;
+  syncStatus: string;
+  importedCount: number;
+  lastError: string | null;
+};

@@ -1,0 +1,332 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CarStatus {
+  AVAILABLE
+  RENTED
+  SERVICE
+  RESERVED
+  UNAVAILABLE
+}
+
+enum AttendanceStatus {
+  ON_TIME
+  LATE
+}
+
+enum DeliveryStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  permissions String[]
+  users       User[]
+}
+
+model User {
+  id            String              @id @default(cuid())
+  login         String              @unique
+  passwordHash  String
+  roleId        String
+  role          Role                @relation(fields: [roleId], references: [id])
+  active        Boolean             @default(true)
+  profile       EmployeeProfile?
+  sessions      Session[]
+  attendance    Attendance[]
+  tasks         DailyTask[]
+  services      CarService[]
+  documents     CarDocument[]
+  notifications Notification[]
+  recipients    TelegramRecipient[]
+  auditLogs     AuditLog[]
+  statusHistory CarStatusHistory[]
+  telegramLinks TelegramLinkToken[]
+  createdAt     DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime            @updatedAt @db.Timestamptz(3)
+}
+
+model EmployeeProfile {
+  reportFormat     String   @default("TEXT")
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id])
+  firstName        String
+  lastName         String
+  phone            String
+  position         String
+  officeId         String
+  office           Office   @relation(fields: [officeId], references: [id])
+  telegramUserId   String?  @unique
+  telegramChatId   String?
+  telegramUsername String?
+  telegramVerified Boolean  @default(false)
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @db.Timestamptz(3)
+}
+
+model Office {
+  id             String            @id @default(cuid())
+  name           String
+  timezone       String            @default("Asia/Tashkent")
+  startTime      String            @default("10:00")
+  endTime        String            @default("22:00")
+  telegramChatId String?
+  employees      EmployeeProfile[]
+  attendance     Attendance[]
+}
+
+model Session {
+  lastSeenAt DateTime @default(now()) @db.Timestamptz(3)
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([expiresAt])
+}
+
+model LoginAttempt {
+  key     String   @id
+  count   Int      @default(1)
+  resetAt DateTime @db.Timestamptz(3)
+}
+
+model Attendance {
+  earlyLeaveReason   String?
+  id                 String           @id @default(cuid())
+  userId             String
+  user               User             @relation(fields: [userId], references: [id])
+  officeId           String
+  office             Office           @relation(fields: [officeId], references: [id])
+  date               DateTime         @db.Date
+  checkIn            DateTime         @db.Timestamptz(3)
+  checkOut           DateTime?        @db.Timestamptz(3)
+  checkInTimezone    String           @default("Asia/Tashkent")
+  checkOutTimezone   String?
+  checkInRecordedAt  DateTime         @default(now()) @db.Timestamptz(3)
+  checkOutRecordedAt DateTime?        @db.Timestamptz(3)
+  status             AttendanceStatus
+  lateReason         String?
+
+  @@unique([userId, date])
+  @@index([date, status])
+}
+
+model DailyTask {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    User     @relation(fields: [employeeId], references: [id])
+  date        DateTime @db.Date
+  description String
+  expenseAmount Decimal @default(0) @db.Decimal(14, 2)
+  expenseNotes String?
+  carId       String?
+  car         Car?     @relation(fields: [carId], references: [id])
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([employeeId, date])
+}
+
+model Car {
+  imageData        String?
+  id               String             @id @default(cuid())
+  brand            String
+  model            String
+  year             Int
+  plateNumber      String             @unique
+  normalizedPlate  String             @unique
+  legalPlateNumber String?
+  vin              String?            @unique
+  color            String
+  engine           String
+  mileage          Int                @default(0)
+  status           CarStatus          @default(AVAILABLE)
+  location         String
+  notes            String?
+  archived         Boolean            @default(false)
+  documents        CarDocument[]
+  services         CarService[]
+  tasks            DailyTask[]
+  rentals          RentalRecord[]
+  statusHistory    CarStatusHistory[]
+  createdAt        DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime           @updatedAt @db.Timestamptz(3)
+}
+
+model CarStatusHistory {
+  id         String    @id @default(cuid())
+  carId      String
+  car        Car       @relation(fields: [carId], references: [id])
+  employeeId String
+  employee   User      @relation(fields: [employeeId], references: [id])
+  fromStatus CarStatus
+  toStatus   CarStatus
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+}
+
+model ServiceType {
+  id       String       @id @default(cuid())
+  name     String       @unique
+  services CarService[]
+}
+
+model CarService {
+  id            String      @id @default(cuid())
+  carId         String
+  car           Car         @relation(fields: [carId], references: [id])
+  employeeId    String
+  employee      User        @relation(fields: [employeeId], references: [id])
+  serviceTypeId String
+  serviceType   ServiceType @relation(fields: [serviceTypeId], references: [id])
+  date          DateTime    @db.Date
+  mileage       Int
+  notes         String?
+  createdAt     DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@index([carId, date])
+}
+
+model DocumentType {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  documents CarDocument[]
+}
+
+model CarDocument {
+  id             String              @id @default(cuid())
+  carId          String
+  car            Car                 @relation(fields: [carId], references: [id])
+  documentTypeId String
+  documentType   DocumentType        @relation(fields: [documentTypeId], references: [id])
+  number         String
+  company        String?
+  startDate      DateTime            @db.Date
+  expiryDate     DateTime            @db.Date
+  responsibleId  String
+  responsible    User                @relation(fields: [responsibleId], references: [id])
+  fileUrl        String?
+  recipients     TelegramRecipient[]
+  createdAt      DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime            @updatedAt @db.Timestamptz(3)
+
+  @@index([expiryDate])
+}
+
+model TelegramRecipient {
+  id         String      @id @default(cuid())
+  employeeId String
+  employee   User        @relation(fields: [employeeId], references: [id])
+  documentId String
+  document   CarDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, documentId])
+}
+
+model TelegramLinkToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @db.Timestamptz(3)
+}
+
+model GoogleSheetsConfig {
+  id            String         @id @default(cuid())
+  name          String
+  sheetId       String
+  range         String
+  mapping       Json
+  enabled       Boolean        @default(true)
+  lastSyncAt    DateTime?      @db.Timestamptz(3)
+  syncStatus    String         @default("NEVER")
+  importedCount Int            @default(0)
+  lastError     String?
+  rentals       RentalRecord[]
+  updatedAt     DateTime       @updatedAt @db.Timestamptz(3)
+}
+
+model RentalRecord {
+  id                       String             @id @default(cuid())
+  sourceId                 String
+  configId                 String
+  config                   GoogleSheetsConfig @relation(fields: [configId], references: [id])
+  carId                    String
+  car                      Car                @relation(fields: [carId], references: [id])
+  customerName             String
+  phone                    String
+  passportEncrypted        String?
+  passportDetailsEncrypted String?
+  rentalStart              DateTime           @db.Timestamptz(3)
+  rentalEnd                DateTime           @db.Timestamptz(3)
+  contractNumber           String
+  issuedBy                 String?
+  acceptedBy               String?
+  notes                    String?
+  importedAt               DateTime           @default(now()) @db.Timestamptz(3)
+
+  @@unique([configId, sourceId])
+  @@index([carId, rentalStart, rentalEnd])
+}
+
+model Notification {
+  requiredPermissions String[]       @default([])
+  documentData        Bytes?
+  documentName        String?
+  id                  String         @id @default(cuid())
+  userId              String?
+  user                User?          @relation(fields: [userId], references: [id])
+  title               String
+  message             String
+  chatId              String?
+  status              DeliveryStatus @default(PENDING)
+  dedupeKey           String         @unique
+  attempts            Int            @default(0)
+  nextAttemptAt       DateTime       @default(now()) @db.Timestamptz(3)
+  leaseUntil          DateTime?      @db.Timestamptz(3)
+  lastError           String?
+  readAt              DateTime?      @db.Timestamptz(3)
+  createdAt           DateTime       @default(now()) @db.Timestamptz(3)
+
+  @@index([status, nextAttemptAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  timestamp  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([entityType, entityId, timestamp])
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+model ScheduledJob {
+  key         String   @id
+  completedAt DateTime @default(now()) @db.Timestamptz(3)
+}

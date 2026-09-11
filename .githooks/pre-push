@@ -1,0 +1,2 @@
+#!/bin/sh
+exec node --env-file-if-exists=.env scripts/security-check.mjs --git-only

@@ -1,0 +1,57 @@
+{
+  "name": "rentcar-management",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0",
+    "build": "prisma generate && NEXT_BUILD_DIR=.next-production next build",
+    "start": "NEXT_BUILD_DIR=.next-production next start --hostname 0.0.0.0",
+    "worker": "node --env-file-if-exists=.env --import tsx src/worker/index.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:dev": "prisma migrate dev",
+    "db:seed": "node --env-file-if-exists=.env --import tsx prisma/seed.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "format": "prettier --write src prisma/*.ts tests docs *.md *.json *.yaml",
+    "auth:bootstrap": "node --env-file-if-exists=.env --import tsx prisma/bootstrap.ts",
+    "test:integration": "node --env-file-if-exists=.env --import tsx --test --test-concurrency=1 tests/integration.test.ts tests/integrations.test.ts tests/telegram-auth.integration.test.ts tests/employee-management.integration.test.ts tests/offices.integration.test.ts tests/attendance-edit.integration.test.ts tests/car-reports.integration.test.ts tests/security.integration.test.ts tests/record-management.integration.test.ts",
+    "telegram:setup": "node --env-file-if-exists=.env --import tsx scripts/setup-telegram.ts",
+    "offices:setup": "node --env-file-if-exists=.env --import tsx scripts/add-offices.ts",
+    "security:check": "node --env-file-if-exists=.env scripts/security-check.mjs",
+    "security:secrets": "node --env-file-if-exists=.env scripts/security-check.mjs --git-only",
+    "security:audit": "npm audit --omit=dev --audit-level=high"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.0",
+    "bcryptjs": "3.0.2",
+    "date-fns": "4.1.0",
+    "date-fns-tz": "3.2.0",
+    "jose": "6.1.0",
+    "lucide-react": "0.468.0",
+    "next": "15.5.25",
+    "pdfkit": "^0.20.2",
+    "react": "19.1.6",
+    "react-dom": "19.1.6",
+    "sharp": "^0.35.4",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.1.18",
+    "@types/node": "22.19.0",
+    "@types/pdfkit": "^0.17.6",
+    "@types/react": "19.1.17",
+    "@types/react-dom": "19.1.11",
+    "prettier": "3.6.2",
+    "prisma": "6.19.0",
+    "tailwindcss": "4.1.18",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  },
+  "overrides": {
+    "effect": "^3.20.0",
+    "deepmerge-ts": "^8.0.0",
+    "postcss": "^8.5.23",
+    "sharp": "$sharp"
+  }
+}
