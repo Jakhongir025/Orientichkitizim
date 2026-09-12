@@ -15,7 +15,7 @@
     "test": "tsx --test tests/*.test.ts",
     "format": "prettier --write src prisma/*.ts tests docs *.md *.json *.yaml",
     "auth:bootstrap": "node --env-file-if-exists=.env --import tsx prisma/bootstrap.ts",
-    "test:integration": "node --env-file-if-exists=.env --import tsx --test --test-concurrency=1 tests/integration.test.ts tests/integrations.test.ts tests/telegram-auth.integration.test.ts tests/employee-management.integration.test.ts tests/offices.integration.test.ts tests/attendance-edit.integration.test.ts tests/car-reports.integration.test.ts tests/security.integration.test.ts tests/record-management.integration.test.ts",
+    "test:integration": "node --env-file-if-exists=.env --import tsx --test --test-concurrency=1 tests/integration.test.ts tests/integrations.test.ts tests/telegram-auth.integration.test.ts tests/employee-management.integration.test.ts tests/offices.integration.test.ts tests/attendance-edit.integration.test.ts tests/car-reports.integration.test.ts tests/security.integration.test.ts tests/record-management.integration.test.ts tests/car-status.integration.test.ts tests/telegram-allowlist.integration.test.ts tests/notification-categories.integration.test.ts tests/notification-report.integration.test.ts tests/day-off.integration.test.ts",
     "telegram:setup": "node --env-file-if-exists=.env --import tsx scripts/setup-telegram.ts",
     "offices:setup": "node --env-file-if-exists=.env --import tsx scripts/add-offices.ts",
     "security:check": "node --env-file-if-exists=.env scripts/security-check.mjs",

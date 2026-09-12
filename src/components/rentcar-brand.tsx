@@ -7,7 +7,7 @@ export function RentCarBrand() {
         alt="Orient Rent a car"
       />
       <span className="orient-brand-name">
-        OrientRentCar<small>MANAGEMENT SYSTEM</small>
+        OrientRentCar<small>BOSHQARUV TIZIMI</small>
       </span>
     </>
   );

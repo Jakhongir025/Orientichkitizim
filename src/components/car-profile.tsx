@@ -1,4 +1,5 @@
 "use client";
+import { uzLabel } from "@/lib/uzbek";
 import { RecordActions } from "./record-actions";
 import { CarReports } from "./car-reports";
 import { Activity, ArrowRight, CarFront } from "lucide-react";
@@ -36,7 +37,7 @@ export function CarProfile({
   );
   const [serviceForm, setServiceForm] = useState(false);
   const [car, setCar] = useState<Car | null>(null),
-    [tab, setTab] = useState("Overview"),
+    [tab, setTab] = useState("Umumiy ma’lumot"),
     [error, setError] = useState(""),
     [archiving, setArchiving] = useState(false);
   useEffect(() => {
@@ -46,12 +47,12 @@ export function CarProfile({
   }, [carId, revision]);
   if (!car) return error ? <div className="error">{error}</div> : <Loading />;
   const tabs = [
-    "Overview",
+    "Umumiy ma’lumot",
     "Hisobotlar",
-    ...(can("documents.read") ? ["Documents"] : []),
-    "Service History",
-    "Rental History",
-    ...(can("audit.read") ? ["Activity Log"] : []),
+    ...(can("documents.read") ? ["Hujjatlar"] : []),
+    "Servis tarixi",
+    "Ijara tarixi",
+    ...(can("audit.read") ? ["Amallar tarixi"] : []),
   ];
   return (
     <>
@@ -72,6 +73,12 @@ export function CarProfile({
           <div className="profile-badges">
             <span className="plate">{car.plateNumber}</span>
             <Badge value={car.status} />
+            {car.occupiedUntil && (
+              <p>
+                Band: {new Date(car.occupiedUntil).toLocaleString("uz-UZ")}{" "}
+                gacha
+              </p>
+            )}
           </div>
         </div>
         <div className="profile-actions">
@@ -105,7 +112,7 @@ export function CarProfile({
           ))}
         </div>
         {tab === "Hisobotlar" && <CarReports carId={car.id} />}
-        {tab === "Overview" && (
+        {tab === "Umumiy ma’lumot" && (
           <div className="detail-grid">
             {Object.entries({
               Brend: car.brand,
@@ -127,7 +134,7 @@ export function CarProfile({
             ))}
           </div>
         )}
-        {tab === "Documents" && (
+        {tab === "Hujjatlar" && (
           <>
             {can("documents.write") && (
               <div className="panel-heading">
@@ -151,7 +158,7 @@ export function CarProfile({
             >
               {car.documents?.map((d) => (
                 <tr key={d.id}>
-                  <td>{d.documentType.name}</td>
+                  <td>{uzLabel(d.documentType.name)}</td>
                   <td>{d.number}</td>
                   <td>{formatDate(d.startDate)}</td>
                   <td>{formatDate(d.expiryDate)}</td>
@@ -179,7 +186,7 @@ export function CarProfile({
             </Table>
           </>
         )}
-        {tab === "Service History" && (
+        {tab === "Servis tarixi" && (
           <>
             {can("services.write") && (
               <div className="panel-heading">
@@ -203,7 +210,7 @@ export function CarProfile({
             >
               {car.services?.map((s) => (
                 <tr key={s.id}>
-                  <td>{s.serviceType.name}</td>
+                  <td>{uzLabel(s.serviceType.name)}</td>
                   <td>{formatDate(s.date)}</td>
                   <td>{s.mileage.toLocaleString()} km</td>
                   <td>{fullName(s.employee)}</td>
@@ -223,17 +230,18 @@ export function CarProfile({
             </Table>
           </>
         )}
-        {tab === "Rental History" && (
+        {tab === "Ijara tarixi" && (
           <RentalSearch initialPlate={car.plateNumber} canManage={can("*")} />
         )}
-        {tab === "Activity Log" && (
+        {tab === "Amallar tarixi" && (
           <>
             {car.activity?.map((a) => (
               <div className="activity-row" key={a.id}>
                 <Activity size={18} />
                 <div>
                   <b>
-                    {a.action} · {fullName(a.user)}
+                    {uzLabel(a.action)} ·{" "}
+                    {a.user ? fullName(a.user) : "Tizim (avtomatik)"}
                   </b>
                   <small>{formatDate(a.timestamp, true)}</small>
                   <details>
@@ -250,7 +258,7 @@ export function CarProfile({
               </div>
             ))}
             <div className="panel-heading">
-              <h3>Status tarixi</h3>
+              <h3>Holat tarixi</h3>
             </div>
             {car.statusHistory?.map((h) => (
               <div className="activity-row" key={h.id}>

@@ -34,7 +34,7 @@ export function parseRentalDate(value: string) {
     new Date(value.slice(0, 10)).toISOString().slice(0, 10) !==
       value.slice(0, 10)
   )
-    throw new AppError(400, "Rental dates must be ISO 8601 with timezone");
+    throw new AppError(400, "Ijara sanasi vaqt zonasi bilan ISO 8601 formatida bo‘lishi kerak");
   return new Date(value);
 }
 export async function syncSheets(configId: string) {
@@ -115,7 +115,7 @@ export async function syncSheets(configId: string) {
         if (!sourceId || seen.has(sourceId) || !carId || !get("customerName"))
           throw new AppError(
             400,
-            `Sheet qatori ${index + 1}: ID, avtomobil yoki mijoz noto‘g‘ri`,
+            `Jadval qatori ${index + 1}: ID, avtomobil yoki mijoz noto‘g‘ri`,
           );
         seen.add(sourceId);
         const rentalStart = parseRentalDate(get("rentalStart")),
@@ -123,7 +123,7 @@ export async function syncSheets(configId: string) {
         if (rentalEnd <= rentalStart)
           throw new AppError(
             400,
-            `Sheet qatori ${index + 1}: rental vaqt oralig‘i noto‘g‘ri`,
+            `Jadval qatori ${index + 1}: ijara vaqt oralig‘i noto‘g‘ri`,
           );
         return {
           sourceId,
@@ -174,11 +174,11 @@ export async function syncSheets(configId: string) {
         lastError:
           error instanceof AppError
             ? error.message
-            : "Google Sheets temporarily unavailable",
+            : "Google jadvallari xizmati vaqtincha ishlamayapti",
       },
     });
     logger.error("sheets_sync_failed");
     if (error instanceof AppError) throw error;
-    throw new AppError(503, "Google Sheets temporarily unavailable");
+    throw new AppError(503, "Google jadvallari xizmati vaqtincha ishlamayapti");
   }
 }

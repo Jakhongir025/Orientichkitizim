@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { ZodError } from "zod";
+import { ZodError, type ZodIssue } from "zod";
 export class AppError extends Error {
   constructor(
     public status: number,
@@ -16,6 +16,22 @@ export const logger = {
   error: (event: string) =>
     console.error(JSON.stringify({ level: "ERROR", event })),
 };
+export function uzValidationMessage(issue: ZodIssue): string {
+  if (issue.code === "custom") return issue.message;
+  if (issue.code === "too_small")
+    return `Qiymat kamida ${issue.minimum}${issue.type === "string" ? " belgidan iborat" : ""} bo‘lishi kerak`;
+  if (issue.code === "too_big")
+    return `Qiymat ${issue.maximum}${issue.type === "string" ? " belgidan" : ""} oshmasligi kerak`;
+  if (issue.code === "invalid_type")
+    return issue.received === "undefined"
+      ? "Bu maydonni to‘ldiring"
+      : "Ma’lumot turi noto‘g‘ri";
+  if (issue.code === "invalid_enum_value")
+    return "Ro‘yxatdan mos qiymatni tanlang";
+  if (issue.code === "unrecognized_keys")
+    return "Ruxsat berilmagan maydon kiritilgan";
+  return "Ma’lumot formati noto‘g‘ri";
+}
 export function errorResponse(error: unknown) {
   if (error instanceof AppError)
     return Response.json({ error: error.message }, { status: error.status });
@@ -35,14 +51,17 @@ export function errorResponse(error: unknown) {
               officeId: "Ofis",
             };
             const field = String(issue.path[0] || "");
-            const label = labels[field] || field;
-            if (field === "password") return issue.message;
+            const label = labels[field] || "Maydon";
+            if (field === "password")
+              return issue.code === "too_small"
+                ? `Parol kamida ${issue.minimum} belgidan iborat bo‘lishi kerak`
+                : uzValidationMessage(issue);
             if (field === "roleId" || field === "officeId")
               return `${label}: ro‘yxatdan tanlang`;
-            return `${label ? `${label}: ` : ""}${issue.message}`;
+            return `${label ? `${label}: ` : ""}${uzValidationMessage(issue)}`;
           })
           .join(". "),
-        details: error.flatten(),
+        details: error.flatten(uzValidationMessage),
       },
       { status: 400 },
     );

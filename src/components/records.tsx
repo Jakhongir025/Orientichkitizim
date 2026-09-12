@@ -1,4 +1,6 @@
 "use client";
+import { DaysOff } from "./days-off";
+import { uzLabel } from "@/lib/uzbek";
 import { RecordActions } from "./record-actions";
 import { AttendanceEdit } from "./attendance-edit";
 import {
@@ -37,7 +39,7 @@ import {
   today,
 } from "./ui";
 export function Records({
-  section,
+  section: requestedSection,
   revision,
   lookup,
   can,
@@ -54,6 +56,20 @@ export function Records({
   ) => void;
   refresh: () => void;
 }) {
+  const [attendanceTab, setAttendanceTab] = useState("attendance");
+  const [noticeDate, setNoticeDate] = useState(today());
+  const [followToday, setFollowToday] = useState(true);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfMessage, setPdfMessage] = useState("");
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (followToday) setNoticeDate(today());
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [followToday]);
+  const [category, setCategory] = useState("ATTENDANCE");
+  const section =
+    requestedSection === "attendance" ? attendanceTab : requestedSection;
   const [rows, setRows] = useState<unknown[]>([]),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
@@ -67,7 +83,7 @@ export function Records({
   const [page, setPage] = useState(1);
   useEffect(
     () => setPage(1),
-    [section, query, status, dateFilter, employee, car],
+    [section, query, status, dateFilter, employee, car, category, noticeDate],
   );
   useEffect(() => {
     let active = true;
@@ -75,6 +91,10 @@ export function Records({
     const timer = setTimeout(() => {
       const params = new URLSearchParams({ page: String(page), limit: "50" });
       if (query) params.set("q", query);
+      if (section === "notifications") {
+        params.set("category", category);
+        params.set("date", noticeDate);
+      }
       if (section === "cars" && status) params.set("status", status);
       if (["attendance", "daily-reports"].includes(section)) {
         if (dateFilter) params.set("date", dateFilter);
@@ -99,13 +119,149 @@ export function Records({
       active = false;
       clearTimeout(timer);
     };
-  }, [section, revision, query, status, dateFilter, employee, car, page]);
+  }, [
+    section,
+    revision,
+    query,
+    status,
+    dateFilter,
+    employee,
+    car,
+    page,
+    category,
+    noticeDate,
+  ]);
+  async function exportNotices(send = false) {
+    setPdfBusy(true);
+    setError("");
+    setPdfMessage("");
+    try {
+      const input = { date: noticeDate, category, q: query };
+      if (send) {
+        await api("notifications/send-report", "POST", {
+          ...input,
+          requestId: crypto.randomUUID(),
+        });
+        setPdfMessage("PDF Telegramga yuborish navbatiga qo‘shildi");
+      } else {
+        const file = await api<{ pdf: string; filename: string }>(
+          `notifications/pdf?${new URLSearchParams(input)}`,
+        );
+        const url = URL.createObjectURL(
+          new Blob([Uint8Array.from(atob(file.pdf), (c) => c.charCodeAt(0))], {
+            type: "application/pdf",
+          }),
+        );
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = file.filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setPdfBusy(false);
+    }
+  }
   const [attendanceEdit, setAttendanceEdit] = useState<Attendance | null>(null);
   const cars = rows as Car[],
     employees = rows as User[],
     documents = rows as Document[];
   return (
     <section className={section === "cars" && grid ? "" : "panel"}>
+      {requestedSection === "attendance" && (
+        <DaysOff revision={revision} onSaved={refresh} />
+      )}
+      {requestedSection === "attendance" && (
+        <nav className="tabs" aria-label="Davomat bo‘limlari">
+          {[
+            ["attendance", "Ishga kelish / ketish"],
+            ["services", "Xodimlarning servis ishlari"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              className={attendanceTab === key ? "active" : ""}
+              aria-pressed={attendanceTab === key}
+              onClick={() => setAttendanceTab(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
+      {section === "notifications" && (
+        <nav className="tabs" aria-label="Bildirishnoma bo‘limlari">
+          {[
+            ["ALL", "Barcha bo‘limlar"],
+            ["ATTENDANCE", "Ishga kelish / ketish"],
+            ["SERVICE", "Servis ishlari"],
+            ["DOCUMENTS", "Hujjatlar"],
+            ["REPORTS", "Hisobotlar"],
+            ["OTHER", "Boshqa"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              className={category === key ? "active" : ""}
+              aria-pressed={category === key}
+              onClick={() => setCategory(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
+      {section === "notifications" && (
+        <p className="notification-help">
+          Kerakli bo‘limni tanlang. Xabarlar eng yangisidan boshlab saralangan.
+          Xodim, avtomobil yoki matn bo‘yicha qidirishingiz mumkin.
+        </p>
+      )}
+      {section === "notifications" && (
+        <div className="filters">
+          <label className="field">
+            Sana (Toshkent vaqti)
+            <input
+              type="date"
+              required
+              value={noticeDate}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setNoticeDate(e.target.value);
+                  setFollowToday(false);
+                  setPdfMessage("");
+                }
+              }}
+            />
+          </label>
+          <button
+            className="secondary"
+            onClick={() => {
+              setNoticeDate(today());
+              setFollowToday(true);
+            }}
+          >
+            Bugun
+          </button>
+          <button
+            className="secondary"
+            disabled={pdfBusy}
+            onClick={() => void exportNotices()}
+          >
+            PDF yuklab olish
+          </button>
+          <button
+            className="secondary"
+            disabled={pdfBusy}
+            onClick={() => void exportNotices(true)}
+          >
+            PDFni Telegramga yuborish
+          </button>
+          {pdfMessage && <p role="status">{pdfMessage}</p>}
+        </div>
+      )}
       <div className="filters">
         <div className="filter-search">
           <Search size={17} />
@@ -123,11 +279,17 @@ export function Records({
             onChange={(e) => setStatus(e.target.value)}
           >
             <option value="">Barcha holatlar</option>
-            {["AVAILABLE", "RENTED", "SERVICE", "RESERVED", "UNAVAILABLE"].map(
-              (s) => (
-                <option key={s}>{s}</option>
-              ),
-            )}
+            {[
+              "AVAILABLE",
+              "RENTED",
+              "SERVICE",
+              "RESERVED",
+              "UNAVAILABLE",
+              "WITH_OWNER",
+              "CAR_WASH",
+            ].map((s) => (
+              <option key={s}>{s}</option>
+            ))}
           </select>
         )}
         {["attendance", "daily-reports"].includes(section) && (
@@ -336,7 +498,7 @@ export function Records({
                     <td>{u.profile?.position}</td>
                     <td>
                       {u.login}
-                      <small>{u.role.name}</small>
+                      <small>{uzLabel(u.role.name)}</small>
                     </td>
                     <td>
                       {u.profile?.telegramUsername ||
@@ -386,12 +548,14 @@ export function Records({
             >
               {(rows as Attendance[])
                 .filter((a) =>
-                  fullName(a.user).toLowerCase().includes(query.toLowerCase()),
+                  (a.user ? fullName(a.user) : "Tizim (avtomatik)")
+                    .toLowerCase()
+                    .includes(query.toLowerCase()),
                 )
                 .map((a) => (
                   <tr key={a.id}>
                     <td>
-                      <b>{fullName(a.user)}</b>
+                      <b>{a.user ? fullName(a.user) : "Tizim (avtomatik)"}</b>
                     </td>
                     <td>{formatDate(a.date)}</td>
                     <td>
@@ -495,7 +659,7 @@ export function Records({
             >
               {(rows as Service[])
                 .filter((s) =>
-                  `${carName(s.car)} ${s.serviceType.name} ${s.notes}`
+                  `${carName(s.car)} ${uzLabel(s.serviceType.name)} ${s.notes}`
                     .toLowerCase()
                     .includes(query.toLowerCase()),
                 )
@@ -507,7 +671,7 @@ export function Records({
                         <small>{s.car.plateNumber}</small>
                       </Link>
                     </td>
-                    <td>{s.serviceType.name}</td>
+                    <td>{uzLabel(s.serviceType.name)}</td>
                     <td>{formatDate(s.date)}</td>
                     <td>{s.mileage.toLocaleString()} km</td>
                     <td>{fullName(s.employee)}</td>
@@ -539,7 +703,7 @@ export function Records({
             >
               {documents
                 .filter((d) =>
-                  `${carName(d.car)} ${d.car.plateNumber} ${d.documentType.name}`
+                  `${carName(d.car)} ${d.car.plateNumber} ${uzLabel(d.documentType.name)}`
                     .toLowerCase()
                     .includes(query.toLowerCase()),
                 )
@@ -551,7 +715,7 @@ export function Records({
                         <small>{d.car.plateNumber}</small>
                       </Link>
                     </td>
-                    <td>{d.documentType.name}</td>
+                    <td>{uzLabel(d.documentType.name)}</td>
                     <td>{d.number}</td>
                     <td>
                       <span
@@ -608,8 +772,20 @@ export function Records({
                     </span>
                     <div>
                       <h3>{n.title}</h3>
-                      <p>{n.message}</p>
-                      <small>{formatDate(n.createdAt, true)}</small>
+                      <small>
+                        {{
+                          ATTENDANCE: "Ishga kelish / ketish",
+                          SERVICE: "Servis ishlari",
+                          DOCUMENTS: "Hujjatlar",
+                          REPORTS: "Hisobotlar",
+                          OTHER: "Boshqa",
+                        }[n.category] || n.category}
+                      </small>
+                      <p className="notification-message">{n.message}</p>
+                      <small>
+                        {formatDate(n.createdAt, true)} ·{" "}
+                        {n.readAt ? "O‘qilgan" : "Yangi xabar"}
+                      </small>
                     </div>
                     <div className="notification-actions">
                       <Badge value={n.status} />
@@ -671,12 +847,12 @@ export function Records({
               {(rows as Audit[]).map((a) => (
                 <tr key={a.id}>
                   <td>{formatDate(a.timestamp, true)}</td>
-                  <td>{fullName(a.user)}</td>
+                  <td>{a.user ? fullName(a.user) : "Tizim (avtomatik)"}</td>
                   <td>
-                    <Badge value={a.action} />
+                    <Badge value={uzLabel(a.action)} />
                   </td>
                   <td>
-                    {a.entityType}
+                    {uzLabel(a.entityType)}
                     <small>{a.entityId}</small>
                   </td>
                   <td>

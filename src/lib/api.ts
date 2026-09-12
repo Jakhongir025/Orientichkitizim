@@ -1,3 +1,14 @@
+import { saveDayOff, cancelDayOff } from "@/modules/attendance/day-off";
+import {
+  notificationWhere,
+  buildNotificationPdf,
+  enqueueNotificationPdf,
+} from "@/modules/notifications/report";
+import { fleetStatusPdf } from "@/modules/cars/status-pdf";
+import {
+  updateCarStatus,
+  releaseExpiredCars,
+} from "@/modules/cars/status-service";
 import {
   manageRecord,
   requireSuperAdmin,
@@ -115,6 +126,55 @@ async function handle(request: Request) {
       ].includes(resource)
     )
       requireSuperAdmin(actor);
+    if (
+      method === "GET" &&
+      ["cars", "car-status", "dashboard", "lookup", "car-reports"].includes(
+        resource,
+      )
+    )
+      await releaseExpiredCars();
+    if (resource === "car-status" && key === "pdf" && method === "GET") {
+      allow(actor, "cars.read");
+      await rateLimit(`fleet-pdf:${actor.id}`, 5, 60000);
+      const query = (q.get("q") || "").slice(0, 100);
+      const timezone = z
+        .string()
+        .max(100)
+        .refine((v) => {
+          try {
+            new Intl.DateTimeFormat("en", { timeZone: v });
+            return true;
+          } catch {
+            return false;
+          }
+        }, "Timezone noto‘g‘ri")
+        .parse(q.get("timezone") || "Asia/Tashkent");
+      const cars = await db.car.findMany({
+        where: carWhere(query),
+        orderBy: [{ brand: "asc" }, { model: "asc" }, { plateNumber: "asc" }],
+        take: 5001,
+        select: {
+          brand: true,
+          model: true,
+          plateNumber: true,
+          status: true,
+          occupiedUntil: true,
+        },
+      });
+      if (cars.length > 5000)
+        throw new AppError(
+          400,
+          "PDF uchun qidiruvni aniqlashtiring (eng ko‘pi 5000 avtomobil)",
+        );
+      return Response.json({
+        pdf: (await fleetStatusPdf(cars, timezone, query)).toString("base64"),
+        filename: "orientrentcar-avtomobillar-holati.pdf",
+      });
+    }
+    if (resource === "car-status" && key && method === "PATCH")
+      return Response.json(
+        await updateCarStatus(actor, key, await body(request)),
+      );
     if (resource === "record-management")
       return Response.json(
         await manageRecord(
@@ -396,6 +456,39 @@ async function handle(request: Request) {
       if (method === "DELETE" && key)
         return Response.json(await removeEmployee(actor, id.parse(key)));
     }
+    if (resource === "days-off") {
+      allow(actor, "attendance.write");
+      if (method === "POST" && !key)
+        return Response.json(await saveDayOff(actor, await body(request)), {
+          status: 201,
+        });
+      if (method === "DELETE" && key)
+        return Response.json(await cancelDayOff(actor, id.parse(key)));
+      if (method === "GET" && !key) {
+        const all = q.get("all") === "1";
+        if (all) allow(actor, "attendance.read");
+        return Response.json(
+          await db.dayOff.findMany({
+            where: {
+              ...(!all ? { userId: actor.id } : {}),
+              date: { gte: dateOnly(businessDate()) },
+            },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  profile: {
+                    select: { firstName: true, lastName: true, phone: true },
+                  },
+                },
+              },
+            },
+            orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+            take: 200,
+          }),
+        );
+      }
+    }
     if (resource === "attendance") {
       if (method === "PATCH" && key)
         return Response.json(
@@ -548,6 +641,8 @@ async function handle(request: Request) {
                         "SERVICE",
                         "RESERVED",
                         "UNAVAILABLE",
+                        "WITH_OWNER",
+                        "CAR_WASH",
                       ])
                       .parse(q.get("status")),
                   }
@@ -651,17 +746,50 @@ async function handle(request: Request) {
       return Response.json(await searchRentals(actor, q));
     }
     if (resource === "notifications") {
-      if (method === "GET")
+      if (key === "pdf" && method === "GET") {
+        await rateLimit(`notification-pdf:${actor.id}`, 5, 60000);
+        const result = await buildNotificationPdf(
+          db,
+          actor,
+          Object.fromEntries(q),
+        );
+        return Response.json({
+          pdf: result.pdf.toString("base64"),
+          filename: result.filename,
+        });
+      }
+      if (key === "send-report" && method === "POST") {
+        allow(actor, "notifications.read");
+        await rateLimit(`notification-pdf:${actor.id}`, 5, 60000);
+        if (!actor.profile?.telegramVerified || !actor.profile.telegramChatId)
+          throw new AppError(400, "Avval Telegram hisobingizni ulang");
+        const input = z
+          .object({
+            date: z.string(),
+            category: z.string(),
+            q: z.string().optional(),
+            requestId: z.string().uuid(),
+          })
+          .parse(await body(request));
+        await db.$transaction(
+          (tx) =>
+            enqueueNotificationPdf(
+              tx,
+              actor,
+              actor.profile!.telegramChatId!,
+              input,
+              `notification-pdf-web:${actor.id}:${input.requestId}`,
+            ),
+          { timeout: 20000 },
+        );
+        return Response.json({ ok: true });
+      }
+      if (method === "GET" && !key)
         return Response.json(
           await db.notification.findMany({
             omit: { documentData: true },
-            where: {
-              ...(permitted("settings.write") ? {} : { userId: actor.id }),
-              ...(term
-                ? { OR: [{ title: contains }, { message: contains }] }
-                : {}),
-            },
-            orderBy: { createdAt: "desc" },
+            where: notificationWhere(actor, Object.fromEntries(q)),
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
             take: limit,
             skip,
           }),
@@ -891,7 +1019,7 @@ async function handle(request: Request) {
         );
       }
     }
-    throw new AppError(404, "Endpoint topilmadi");
+    throw new AppError(404, "So‘ralgan xizmat topilmadi");
   } catch (error) {
     return errorResponse(error);
   }

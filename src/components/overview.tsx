@@ -1,4 +1,6 @@
 "use client";
+import { DaysOff } from "./days-off";
+import { uzLabel } from "@/lib/uzbek";
 import {
   Activity,
   ArrowDownLeft,
@@ -100,6 +102,7 @@ export function Overview({
           ))}
         </div>
       )}
+      <DaysOff revision={revision} onSaved={refresh} />
       <div className="checkin-strip">
         <div className="checkin-icon">
           <Clock3 />
@@ -185,7 +188,7 @@ export function Overview({
                       </span>
                     </Link>
                   </td>
-                  <td>{d.documentType.name}</td>
+                  <td>{uzLabel(d.documentType.name)}</td>
                   <td>{formatDate(d.expiryDate)}</td>
                   <td>
                     <span
@@ -279,7 +282,7 @@ export function Overview({
                 <Wrench size={17} />
               </span>
               <div>
-                <b>{s.serviceType.name}</b>
+                <b>{uzLabel(s.serviceType.name)}</b>
                 <small>
                   {carName(s.car)} <span>·</span> {s.car.plateNumber}{" "}
                   <span>·</span> {fullName(s.employee)}

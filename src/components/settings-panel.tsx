@@ -1,4 +1,5 @@
 "use client";
+import { uzLabel } from "@/lib/uzbek";
 import { RecordActions } from "./record-actions";
 import { useEffect, useState } from "react";
 import type { Lookups, Sheet } from "./types";
@@ -79,7 +80,7 @@ export function SettingsPanel({
               <Badge value={s.syncStatus} />
               <p>{s.range}</p>
               <small>
-                Oxirgi sync: {formatDate(s.lastSyncAt, true)} ·{" "}
+                Oxirgi sinxronlash: {formatDate(s.lastSyncAt, true)} ·{" "}
                 {s.importedCount} ta yozuv
               </small>
               {s.lastError && <p className="error">{s.lastError}</p>}
@@ -102,7 +103,7 @@ export function SettingsPanel({
                     )
                   }
                 >
-                  Sync Now
+                  Hozir sinxronlash
                 </button>
               </div>
             </div>
@@ -142,9 +143,9 @@ export function SettingsPanel({
           </form>
           <h3 className="mt">Shaxsiy Telegram ulanishi</h3>
           <p>
-            Avval Super Admin profilingizga Telegram User ID kiritsin. Ulanish
-            kodi 10 daqiqa amal qiladi; uni aynan o‘sha Telegram hisobidan
-            kompaniya botiga yuboring.
+            Avval Super Admin profilingizga Telegram foydalanuvchi ID raqami
+            kiritsin. Ulanish kodi 10 daqiqa amal qiladi; uni aynan o‘sha
+            Telegram hisobidan kompaniya botiga yuboring.
           </p>
           <button
             className="secondary"
@@ -162,7 +163,7 @@ export function SettingsPanel({
               }
             }}
           >
-            Connect Telegram
+            Telegramni ulash
           </button>
         </section>
         {[
@@ -182,7 +183,7 @@ export function SettingsPanel({
             <div className="type-chips">
               {group.rows.map((t) => (
                 <span key={t.id}>
-                  {t.name}
+                  {uzLabel(t.name)}
                   <RecordActions
                     resource={group.key}
                     record={t}
@@ -240,7 +241,7 @@ export function SettingsPanel({
           >
             <Field label="Yangi ofis nomi" name="name" required />
             <Field
-              label="Rahbar Telegram Chat ID yoki guruh ID"
+              label="Rahbar Telegram chat ID raqami yoki guruh ID"
               name="telegramChatId"
             />
             <p>
@@ -254,7 +255,7 @@ export function SettingsPanel({
         </section>
         {lookup.offices.map((o) => (
           <section className="panel settings-card" key={o.id}>
-            <h2>{o.name}</h2>
+            <h2>{uzLabel(o.name)}</h2>
             <RecordActions
               resource="offices"
               record={o}
@@ -275,9 +276,14 @@ export function SettingsPanel({
                 );
               }}
             >
-              <Field label="Ofis nomi" name="name" value={o.name} required />
               <Field
-                label="Rahbar Telegram Chat ID yoki guruh ID"
+                label="Ofis nomi"
+                name="name"
+                value={uzLabel(o.name)}
+                required
+              />
+              <Field
+                label="Rahbar Telegram chat ID raqami yoki guruh ID"
                 name="telegramChatId"
                 value={o.telegramChatId || ""}
               />
@@ -328,19 +334,19 @@ export function SettingsPanel({
               required
             />
             <Field
-              label="Spreadsheet ID"
+              label="Google jadvali ID raqami"
               name="sheetId"
               value={sheetForm === true ? defaultSheetId : sheetForm.sheetId}
               required
             />
             <Field
-              label="Range (sarlavhasiz, masalan Rentals!A2:L)"
+              label="Kataklar oralig‘i (sarlavhasiz, masalan Rentals!A2:L)"
               name="range"
               value={sheetForm === true ? "Rentals!A2:L" : sheetForm.range}
               required
             />
             <label className="field">
-              Column mapping (0 dan boshlanadi)
+              Ustunlarni moslashtirish (0 dan boshlanadi)
               <textarea
                 className="code-input"
                 name="mapping"

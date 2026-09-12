@@ -71,7 +71,7 @@ export async function login(loginName: string, password: string) {
     process.env.NODE_ENV === "production" &&
     !process.env.APP_URL?.startsWith("https://")
   )
-    throw new AppError(503, "Production HTTPS domeni sozlanmagan");
+    throw new AppError(503, "Asosiy serverning HTTPS domeni sozlanmagan");
   const key = hashToken(loginName.toLowerCase());
   const now = new Date();
   const attempt = await db.$queryRaw<

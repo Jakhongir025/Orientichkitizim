@@ -1,4 +1,8 @@
 "use client";
+import { DaysOff } from "./days-off";
+import { uzLabel } from "@/lib/uzbek";
+import { Records } from "./records";
+import { FleetStatus } from "./fleet-status";
 import { RentCarBrand } from "./rentcar-brand";
 import { LayoutDashboard, CarFront, Bell, FileText } from "lucide-react";
 import { CarReports } from "./car-reports";
@@ -37,12 +41,14 @@ export function MiniApp({ nonce }: { nonce?: string }) {
     "in" | "out" | "report" | "service" | null
   >(null);
   const [tab, setTab] = useState<
-    "today" | "cars" | "notifications" | "reports"
+    "today" | "cars" | "notifications" | "reports" | "car-status"
   >("today");
   const [reportCarId, setReportCarId] = useState("");
   const [search, setSearch] = useState("");
+  const [noticeRevision, setNoticeRevision] = useState(0);
   const [message, setMessage] = useState("");
   const refresh = async () => {
+    setNoticeRevision((v) => v + 1);
     try {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       setData(
@@ -123,7 +129,7 @@ export function MiniApp({ nonce }: { nonce?: string }) {
       </div>
       <header className="mini-header">
         <div>
-          <small>RENTCAR · XODIM KABINETI</small>
+          <small>ORIENTRENTCAR · XODIM KABINETI</small>
           <h1>{user ? fullName(user) : "OrientRentCar"}</h1>
         </div>
         {user && (
@@ -161,7 +167,7 @@ export function MiniApp({ nonce }: { nonce?: string }) {
             Hisob hali ulanmagan bo‘lsa, web profilingizdan Telegramni ulang.
           </p>
           <a href="/login" target="_blank" rel="noopener noreferrer">
-            Web panelga kirish ↗
+            Saytga kirish ↗
           </a>
         </section>
       ) : (
@@ -171,6 +177,7 @@ export function MiniApp({ nonce }: { nonce?: string }) {
               [
                 ["today", "Bugun"],
                 ["cars", "Avtomobillar"],
+                ["car-status", "Holat"],
                 ["notifications", "Xabarlar"],
                 ["reports", "Hisobotlar"],
               ] as const
@@ -297,7 +304,7 @@ export function MiniApp({ nonce }: { nonce?: string }) {
                       .filter((s) => s.employee.id === user.id)
                       .map((s) => (
                         <article key={s.id}>
-                          <b>{s.serviceType.name}</b>
+                          <b>{uzLabel(s.serviceType.name)}</b>
                           <p>
                             {s.car.plateNumber} · {s.mileage} km
                           </p>
@@ -307,6 +314,13 @@ export function MiniApp({ nonce }: { nonce?: string }) {
                   </section>
                 </>
               )}
+              {tab === "car-status" && (
+                <FleetStatus
+                  canManage={["SUPER_ADMIN", "ADMIN"].includes(user.role.name)}
+                  onSaved={refresh}
+                />
+              )}
+              {tab === "today" && <DaysOff onSaved={refresh} />}
               {tab === "cars" && (
                 <>
                   <label className="field">
@@ -353,18 +367,19 @@ export function MiniApp({ nonce }: { nonce?: string }) {
                   {reportCarId && <CarReports carId={reportCarId} />}
                 </>
               )}
-              {tab === "notifications" && (
-                <section className="mini-card">
-                  <h2>Xabarlar</h2>
-                  {data.notifications.length === 0 && <p>Yangi xabar yo‘q.</p>}
-                  {data.notifications.map((n) => (
-                    <article key={n.id}>
-                      <h3>{n.title}</h3>
-                      <p style={{ whiteSpace: "pre-wrap" }}>{n.message}</p>
-                      <Badge value={n.status} />
-                    </article>
-                  ))}
-                </section>
+              {tab === "notifications" && lookups && (
+                <Records
+                  section="notifications"
+                  revision={noticeRevision}
+                  lookup={lookups}
+                  can={(p) =>
+                    p === "*"
+                      ? user.role.name === "SUPER_ADMIN"
+                      : Boolean(can(p))
+                  }
+                  edit={() => {}}
+                  refresh={refresh}
+                />
               )}
               <button
                 className="secondary"

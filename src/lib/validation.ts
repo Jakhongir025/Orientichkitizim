@@ -39,7 +39,15 @@ export const carInput = z.object({
   color: z.string().trim().min(1).max(50),
   engine: z.string().trim().max(100),
   mileage: z.coerce.number().int().min(0).max(10000000),
-  status: z.enum(["AVAILABLE", "RENTED", "SERVICE", "RESERVED", "UNAVAILABLE"]),
+  status: z.enum([
+    "AVAILABLE",
+    "RENTED",
+    "SERVICE",
+    "RESERVED",
+    "UNAVAILABLE",
+    "WITH_OWNER",
+    "CAR_WASH",
+  ]),
   location: z.string().trim().max(200),
   notes: optionalText,
 });

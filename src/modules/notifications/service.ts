@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 export async function notify(
   tx: Prisma.TransactionClient,
   data: {
+    category?: "ATTENDANCE" | "SERVICE" | "DOCUMENTS" | "REPORTS" | "OTHER";
     userId?: string;
     title: string;
     message: string;

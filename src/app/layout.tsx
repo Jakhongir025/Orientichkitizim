@@ -1,3 +1,4 @@
+import { FormLanguage } from "@/components/form-language";
 import type { Metadata } from "next";
 import "./globals.css";
 import { cookies } from "next/headers";
@@ -17,6 +18,7 @@ export default async function RootLayout({
   return (
     <html lang="uz" data-theme={theme}>
       <body>
+        <FormLanguage />
         {children}
         <ThemeToggle initialTheme={theme} />
       </body>

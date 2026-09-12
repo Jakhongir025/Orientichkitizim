@@ -213,3 +213,67 @@ Tahrirlash/o‘chirish faqat SUPER_ADMIN roli uchun: xodimlar, avtomobillar, dav
 O‘chirish tasdiqlash oynasidan keyin bajariladi. Xodimlar va avtomobillar oldingi kabi faol ro‘yxatdan chiqariladi, ularning tarixi saqlanadi. Boshqa o‘chirishlar auditda oldingi qiymatni saqlaydi. Audit yozuvini tahrirlash yoki o‘chirish ham alohida yangi audit yozuvini yaratadi; tizim tarixni yashirincha yo‘qotmaydi. Audit tahrirlashda amal va obyekt turi o‘zgartiriladi, bajaruvchi va vaqt saqlanadi.
 
 Ijara natijasida mijoz, telefon, shartnoma va topshirgan/qabul qilgan ma’lumotlari tahrirlanadi. Google Sheets keyingi sinxronlashda lokal tahrirni yangilashi yoki o‘chirilgan yozuvni qayta import qilishi mumkin: doimiy tuzatishni manba jadvalda ham bajaring. Hozir yuborilayotgan Telegram xabarini o‘zgartirish/o‘chirish yuborish tugaguncha rad etiladi.
+
+## Avtomobillar holatini boshqarish va PDF
+
+Web menyudan **Avtomobillar holati** (`/car-status`), Telegram Mini App ichida **Holat** bo‘limini oching.
+
+- Model yoki davlat raqami bilan qidiring.
+- ADMIN va SUPER_ADMIN **Bo‘sh**, **Band**, **Egasida**, **Avtomobil yuvish joyida**, **Servisda** tugmalaridan holatni tanlaydi. Xodim holatni ko‘radi, o‘zgartira olmaydi.
+- **Band** uchun kelajakdagi tugash sanasi va vaqtini kiritib **Saqlash**ni bosing. Qurilmangizning mahalliy vaqti ishlatiladi.
+- Holat avtomobilning o‘zida saqlanadi: Avtomobillar bo‘limi va profil ham shu ma’lumotdan foydalanadi. Oldin ochilgan sahifani yangilang. O‘zgarish tarixi va kim o‘zgartirgani auditda saqlanadi.
+- Bandlik muddati yetganda avtomobil avtomatik **Bo‘sh** holatiga o‘tadi. Worker har aylanishda (odatda 30 soniya, boshqa ishlar davomiyligiga qarab) tekshiradi; ro‘yxat, dashboard yoki PDF so‘rovida ham muddati o‘tgan holatlar yangilanadi. Ochiq Holat oynasi har 15 soniyada yangilanadi. Avtomatik o‘zgarish auditda **Tizim (avtomatik)** sifatida yoziladi. Boshqa holat tanlansa bandlik muddati tozalanadi.
+- **PDF yuklab olish** tugmasi qidiruvga mos barcha sahifalardagi avtomobillarni bitta PDFga oladi. Qidiruv bo‘sh bo‘lsa barcha faol avtomobillar kiritiladi. Jadvalda model, raqam, holat va bandlik muddati, yuqorida yaratilgan vaqt va timezone ko‘rsatiladi. Arxivlangan avtomobillar kiritilmaydi.
+- Bir admin tahrirlash paytida boshqasi avtomobilni yangilasa, **Yangilash** tugmasini bosib qayta tanlang.
+
+Yangilangan kodni serverga qo‘yishda `npm ci`, `npm run db:migrate`, `npm run build` bajarilib web jarayoni qayta ishga tushiriladi. Docker deploymentda ham web va worker yangi kod bilan qayta yaratilishi kerak. Yangi migratsiyalar: `202609120007_car_status` va `202609120008_automatic_car_release`.
+
+## Davomat va qo‘ng‘iroqcha bo‘limlari
+
+**Davomat** oynasida ikkita alohida bo‘lim bor: **Ishga kelish / ketish** va **Xodimlarning servis ishlari**. Birinchisi kelish-ketish va sabablarni, ikkinchisi avtomobilga qaysi xodim qanday servis bajarganini ko‘rsatadi.
+
+Profil yonidagi **qo‘ng‘iroqcha** Bildirishnomalar oynasini ochadi. Xabarlar **Ishga kelish / ketish**, **Servis ishlari**, **Hujjatlar**, **Hisobotlar**, **Boshqa** bo‘limlariga ajratilgan. Mini Appning Xabarlar oynasida ham shu bo‘limlar bor. Yangi servis yozuvi web bildirishnomasi yaratadi; bu yangi tur uchun Telegramga alohida servis xabari yuborish yoqilmagan. Mavjud davomat Telegram xabarlari o‘z tartibida ishlaydi.
+
+Yangilashda `202609120009_notification_categories` migratsiyasi ham qo‘llanadi.
+
+## Bildirishnomalarni sana bo‘yicha ko‘rish va PDF olish
+
+Bildirishnomalar oynasidan alohida bo‘limni tanlang: kelish-ketish, servis, hujjatlar, hisobotlar yoki boshqa. **Barcha bo‘limlar** umumiy kunlik ro‘yxatni ko‘rsatadi.
+
+**Sana (Toshkent vaqti)** filtri xabarning tizimga qayd etilgan sanasini tanlaydi. Avvaldan **Bugun** tanlangan; yangi kun boshlansa sana avtomatik yangilanadi. Tarixiy sanani qo‘lda tanlaganingizda u o‘zgarmaydi; bugungi kunga qaytish uchun **Bugun**ni bosing. Avval bajarilgan ish keyinroq kiritilsa, uning bildirishnomasi kiritilgan kunda chiqadi; bajarilgan sana xabar matnida saqlanadi.
+
+**PDF yuklab olish** tanlangan sana, bo‘lim va qidiruvga mos barcha sahifalardagi xabarlarni oladi. **PDFni Telegramga yuborish** PDFni hisobingizga ulangan shaxsiy bot chatiga yuborish navbatiga qo‘yadi. Bo‘sh kunda PDFda yozuvlar yo‘qligi ko‘rsatiladi.
+
+Botning shaxsiy chatida quyidagicha so‘rov yuboring:
+
+```text
+/hisobot 2026-09-12
+/hisobot 2026-09-12 davomat
+/hisobot 2026-09-12 servis
+/hisobot 2026-09-12 hujjatlar
+/hisobot 2026-09-12 hisobotlar
+/hisobot 2026-09-12 boshqa
+```
+
+Bo‘lim yozilmasa, barcha bo‘limlar olinadi. `/pdf` ham shu buyruqning muqobili. Sana Toshkent vaqti bo‘yicha. Bot faqat administrator kiritgan, tasdiqlangan va faol Telegram IDdan shaxsiy chatdagi so‘rovni qabul qiladi. Xodim faqat o‘ziga tegishli xabarlarni oladi; tizim sozlamalarini boshqarishga ruxsatli rahbar umumiy xabarlarni oladi. PDFni yuborishdan oldin ham ruxsat qayta tekshiriladi.
+
+Haqiqiy Telegram javobi uchun `TELEGRAM_BOT_TOKEN` va worker ishlashi kerak. Kodni serverga yangilagach web va worker jarayonlarini qayta ishga tushiring. Bu bosqichda haqiqiy Telegramga xabar yuborilmadi; bot so‘rovlari yuborilmaydigan sinovlarda tekshirildi.
+
+Oldingi bildirishnomalar foydalanuvchi talabiga ko‘ra tozalandi. Davomat, servis va avtomobil tarixi o‘chirilmagan. Ushbu yangi PDF bildirishnomalar ro‘yxatidan tuziladi; tozalangan eski bildirishnomalar PDFga qayta qo‘shilmaydi.
+
+## Dam olish kunini belgilash
+
+Bosh sahifa yoki Davomat oynasidagi **Dam olish kunlarim** bo‘limida sana tanlab **Dam olish kunim** tugmasini bosing. Telegram Mini Appning **Bugun** oynasida ham shu bo‘lim bor. Dastlab ertangi sana taklif qilinadi. Sana Toshkent taqvimi bo‘yicha; o‘tgan sanani belgilash mumkin emas. Izoh ixtiyoriy. Adashib belgilansa **Bekor qilish** tugmasidan foydalaning.
+
+Kechki 22:10 hisobotida ism-familiya, telefon raqami va kelgusi dam olish sanasi ko‘rsatiladi. Masalan:
+
+```text
+Aziz Karimov | Telefon: +998 XX XXX XX XX — ish kuni yakuni
+2026-09-14 — Dam olish kuni
+```
+
+Kechki hisobot allaqachon tayyorlanganidan keyin belgilangan dam olish kuni alohida qo‘shimcha xabar sifatida navbatga qo‘yiladi. Haqiqiy Telegram xabarlari uchun bot va worker sozlangan bo‘lishi kerak.
+
+Dam olish sanasida xodimdan kelish-ketish qaydi talab qilinmaydi. Ertalabgi hisobotda **Dam olish kuni** yoziladi, kelmagani yoki ofisni ochmagani haqida avtomatik ogohlantirish yaratilmaydi. Keyingi ish kunida oddiy davomat nazorati davom etadi. Kelish-ketish tugmalari saqlanadi: zarurat bo‘lsa xodim dam olish kunida ham ishlagan vaqtini qayd etishi mumkin.
+
+Yangi jadval: `DayOff`; migratsiya: `202609130010_day_off`. Serverni yangilashda migratsiyani qo‘llab web va worker jarayonlarini qayta ishga tushiring.

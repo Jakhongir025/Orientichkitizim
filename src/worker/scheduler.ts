@@ -27,6 +27,7 @@ export async function attendanceReport(
   tx: Prisma.TransactionClient,
   closing = false,
   onlyOfficeId?: string,
+  now = new Date(),
 ) {
   const offices = await tx.office.findMany({
     where: onlyOfficeId ? { id: onlyOfficeId } : undefined,
@@ -36,7 +37,11 @@ export async function attendanceReport(
         include: {
           user: {
             include: {
-              attendance: { where: { date: dateOnly(businessDate()) } },
+              daysOff: {
+                where: { date: { gte: dateOnly(businessDate(now)) } },
+                orderBy: { date: "asc" },
+              },
+              attendance: { where: { date: dateOnly(businessDate(now)) } },
             },
           },
         },
@@ -46,20 +51,42 @@ export async function attendanceReport(
   for (const office of offices) {
     if (!closing) {
       for (const employee of office.employees) {
-        if (employee.user.attendance.length) continue;
+        if (
+          employee.user.attendance.length ||
+          employee.user.daysOff.some(
+            (d) => d.date.getTime() === dateOnly(businessDate(now)).getTime(),
+          )
+        )
+          continue;
         await notify(tx, {
+          category: "ATTENDANCE",
           title: "⚠️ Ishga kelish qayd etilmadi",
-          message: `⚠️ Ishga kelish / ofisni ochish qayd etilmadi\nXodim: ${employee.firstName} ${employee.lastName}\nOfis: ${office.name}\nSana: ${businessDate()}\nIsh boshlanishi: 10:00\nTekshiruv: ${localClock()} (Asia/Tashkent)\n10:00 dan keyin ham xodim ishga kelish qaydini kiritmagan. Ofis ochilganini xodim bilan aniqlashtiring.`,
+          message: `⚠️ Ishga kelish / ofisni ochish qayd etilmadi\nXodim: ${employee.firstName} ${employee.lastName}\nOfis: ${office.name}\nSana: ${businessDate(now)}\nIsh boshlanishi: 10:00\nTekshiruv: ${localClock()} (Asia/Tashkent)\n10:00 dan keyin ham xodim ishga kelish qaydini kiritmagan. Ofis ochilganini xodim bilan aniqlashtiring.`,
           chatId: office.telegramChatId || process.env.TELEGRAM_ADMIN_CHAT_ID,
-          dedupeKey: `missing-attendance:${office.id}:${employee.userId}:${businessDate()}`,
+          dedupeKey: `missing-attendance:${office.id}:${employee.userId}:${businessDate(now)}`,
         });
       }
     }
     const lines = office.employees.map((p) => {
       const a = p.user.attendance[0];
-      return closing
-        ? `${p.firstName} ${p.lastName} — ${a?.checkOut ? formatInTimeZone(a.checkOut, a.checkOutTimezone || a.checkInTimezone, "dd.MM.yyyy HH:mm") + ` (${a.checkOutTimezone || a.checkInTimezone})` + " ✅" : a ? "checkout qilmagan ⚠️" : "check-in qilmagan ❌"}`
-        : `${p.firstName} ${p.lastName} — ${a ? formatInTimeZone(a.checkIn, a.checkInTimezone, "dd.MM.yyyy HH:mm") + ` (${a.checkInTimezone})` + (a.status === "LATE" ? ` ⚠️ Kechikdi\nSabab: ${a.lateReason}` : " ✅") : "hali check-in qilmagan ❌"}`;
+      const restToday = p.user.daysOff.some(
+        (d) => d.date.getTime() === dateOnly(businessDate(now)).getTime(),
+      );
+      const upcoming = p.user.daysOff.filter(
+        (d) => d.date > dateOnly(businessDate(now)),
+      );
+      const suffix =
+        closing && upcoming.length
+          ? `\n${upcoming.map((d) => `${d.date.toISOString().slice(0, 10)} — Dam olish kuni`).join("\n")}`
+          : "";
+      const identity = `${p.firstName} ${p.lastName} | Telefon: ${p.phone}`;
+      if (restToday) return `${identity} — Dam olish kuni${suffix}`;
+      return (
+        (closing
+          ? `${identity} — ${a?.checkOut ? formatInTimeZone(a.checkOut, a.checkOutTimezone || a.checkInTimezone, "dd.MM.yyyy HH:mm") + ` (${a.checkOutTimezone || a.checkInTimezone})` + " ✅" : a ? "ketishni qayd etmagan ⚠️" : "ishga kelishni qayd etmagan ❌"}`
+          : `${identity} — ${a ? formatInTimeZone(a.checkIn, a.checkInTimezone, "dd.MM.yyyy HH:mm") + ` (${a.checkInTimezone})` + (a.status === "LATE" ? ` ⚠️ Kechikdi\nSabab: ${a.lateReason}` : " ✅") : "hali ishga kelishni qayd etmagan ❌"}`) +
+        suffix
+      );
     });
     const title = closing
       ? "Ish kuni yakuni"
@@ -71,10 +98,11 @@ export async function attendanceReport(
       if (chunk.length + line.length > 3300 || line === "") {
         if (chunk)
           await notify(tx, {
+            category: "ATTENDANCE",
             title,
-            message: `${title}\n${office.name}\n${businessDate()}\n${chunk}`,
+            message: `${title}\n${office.name}\n${businessDate(now)}\n${chunk}`,
             chatId: office.telegramChatId || process.env.TELEGRAM_ADMIN_CHAT_ID,
-            dedupeKey: `${closing ? "closing" : "attendance"}:${office.id}:${businessDate()}:${part++}`,
+            dedupeKey: `${closing ? "closing" : "attendance"}:${office.id}:${businessDate(now)}:${part++}`,
           });
         chunk = "";
       }

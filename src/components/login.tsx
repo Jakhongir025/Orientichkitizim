@@ -29,7 +29,7 @@ export function Login() {
             boshqaring.
           </p>
         </div>
-        <small>OrientRentCar Operations · Asia/Tashkent</small>
+        <small>OrientRentCar boshqaruvi · Asia/Tashkent</small>
       </section>
       <main className="login-main">
         <form

@@ -21,7 +21,7 @@ export function ThemeToggle({
       }}
     >
       {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
-      <span>{theme === "light" ? "Dark" : "Light"}</span>
+      <span>{theme === "light" ? "Qorong‘i" : "Yorug‘"}</span>
     </button>
   );
 }

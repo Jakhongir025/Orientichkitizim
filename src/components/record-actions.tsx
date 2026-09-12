@@ -1,4 +1,5 @@
 "use client";
+import { uzLabel } from "@/lib/uzbek";
 import { useState } from "react";
 import { api, Modal } from "./ui";
 import type { Lookups } from "./types";
@@ -143,7 +144,7 @@ export function RecordActions<T extends { id: string }>({
                       )}
                       {f.options.map((o) => (
                         <option key={o.id} value={o.id}>
-                          {o.name}
+                          {uzLabel(o.name)}
                         </option>
                       ))}
                     </select>

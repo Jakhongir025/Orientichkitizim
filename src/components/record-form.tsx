@@ -214,6 +214,8 @@ export function RecordForm({
                   "SERVICE",
                   "RESERVED",
                   "UNAVAILABLE",
+                  "WITH_OWNER",
+                  "CAR_WASH",
                 ].map((value) => ({
                   value,
                   label: (
@@ -223,6 +225,8 @@ export function RecordForm({
                       SERVICE: "Servisda",
                       RESERVED: "Band qilingan",
                       UNAVAILABLE: "Mavjud emas",
+                      WITH_OWNER: "Egasida",
+                      CAR_WASH: "Avtomobil yuvish joyida",
                     } as Record<string, string>
                   )[value],
                 }))}
@@ -302,7 +306,7 @@ export function RecordForm({
               {initial && (
                 <>
                   <Select
-                    label="Status"
+                    label="Holat"
                     name="active"
                     value={String(employee?.active)}
                     options={[
@@ -311,12 +315,12 @@ export function RecordForm({
                     ]}
                   />
                   <Field
-                    label="Ruxsat berilgan Telegram User ID (raqam)"
+                    label="Ruxsat berilgan Telegram foydalanuvchi ID raqami (raqam)"
                     name="telegramUserId"
                     value={employee?.profile?.telegramUserId || ""}
                   />
                   <Field
-                    label="Telegram Chat ID"
+                    label="Telegram chat ID raqami"
                     name="telegramChatId"
                     value={employee?.profile?.telegramChatId || ""}
                   />

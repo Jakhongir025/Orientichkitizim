@@ -1,3 +1,5 @@
+import { uzLabel } from "@/lib/uzbek";
+import { notify } from "@/modules/notifications/service";
 import { sanitizeCarImage } from "@/modules/media/image";
 import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
@@ -10,13 +12,20 @@ export async function saveCar(actor: Actor, raw: unknown, carId?: string) {
   const input = carId ? carInput.partial().parse(raw) : carInput.parse(raw);
   const data = {
     ...input,
-    ...(input.imageData !== undefined ? {imageData:await sanitizeCarImage(input.imageData)} : {}),
+    ...(input.status && input.status !== "RENTED"
+      ? { occupiedUntil: null }
+      : {}),
+    ...(input.imageData !== undefined
+      ? { imageData: await sanitizeCarImage(input.imageData) }
+      : {}),
     ...(input.plateNumber
       ? { normalizedPlate: normalizePlate(input.plateNumber) }
       : {}),
     ...(input.vin !== undefined ? { vin: input.vin || null } : {}),
   };
   return db.$transaction(async (tx) => {
+    if (carId)
+      await tx.$queryRaw`SELECT id FROM "Car" WHERE id = ${carId} FOR UPDATE`;
     const old = carId
       ? await tx.car.findUniqueOrThrow({ where: { id: carId } })
       : null;
@@ -73,6 +82,16 @@ export async function addService(actor: Actor, raw: unknown) {
       data: { mileage: input.mileage },
     });
     await audit(tx, actor.id, "SERVICE", "Car", car.id, undefined, record);
+    const serviceType = await tx.serviceType.findUniqueOrThrow({
+      where: { id: record.serviceTypeId },
+    });
+    await notify(tx, {
+      category: "SERVICE",
+      userId: actor.id,
+      title: "Servis ishi kiritildi",
+      message: `Xodim: ${actor.profile?.firstName || ""} ${actor.profile?.lastName || ""}\nAvtomobil: ${car.brand} ${car.model}\nDavlat raqami: ${car.plateNumber}\nBajarilgan ish: ${uzLabel(serviceType.name)}\nSana: ${input.date}\nMasofa: ${input.mileage} km${input.notes ? `\n${input.notes}` : ""}`,
+      dedupeKey: `service:${record.id}`,
+    });
     return record;
   });
 }

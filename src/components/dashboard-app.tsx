@@ -1,4 +1,6 @@
 "use client";
+import { uzLabel } from "@/lib/uzbek";
+import { FleetStatus } from "./fleet-status";
 import { RentCarBrand } from "./rentcar-brand";
 import {
   Bell,
@@ -33,7 +35,7 @@ import { api, carName, Empty, formatDate, fullName, Modal } from "./ui";
 const navigation = [
   {
     path: "",
-    label: "Dashboard",
+    label: "Bosh sahifa",
     icon: LayoutDashboard,
     permission: "dashboard.read",
   },
@@ -58,6 +60,12 @@ const navigation = [
   {
     path: "cars",
     label: "Avtomobillar",
+    icon: CarFront,
+    permission: "cars.read",
+  },
+  {
+    path: "car-status",
+    label: "Avtomobillar holati",
     icon: CarFront,
     permission: "cars.read",
   },
@@ -169,6 +177,7 @@ export function DashboardApp({
     attendance: "Davomat",
     "daily-reports": "Kunlik hisobotlar",
     cars: carId ? "Avtomobil profili" : "Avtopark",
+    "car-status": "Avtomobillar holati",
     services: "Servis tarixi",
     documents: "Avtomobil hujjatlari",
     rentals: "Ijara va jarima qidiruvi",
@@ -404,6 +413,11 @@ export function DashboardApp({
               refresh={refresh}
               report={() => setForm({ kind: "report" })}
             />
+          ) : section === "car-status" ? (
+            <FleetStatus
+              canManage={["SUPER_ADMIN", "ADMIN"].includes(user.role.name)}
+              onSaved={refresh}
+            />
           ) : section === "settings" ? (
             <SettingsPanel lookup={lookup} refresh={refresh} />
           ) : section === "rentals" ? (
@@ -428,7 +442,7 @@ export function DashboardApp({
             />
           )}
           <footer className="footer">
-            <span>OrientRentCar Management System</span>
+            <span>OrientRentCar Boshqaruv tizimi</span>
             <span>{timezone} · Ichki foydalanish uchun</span>
           </footer>
         </main>
@@ -443,8 +457,8 @@ export function DashboardApp({
               Login: user.login,
               "Tizimdagi ruxsat":
                 user.role.name === "SUPER_ADMIN"
-                  ? "SUPER_ADMIN · To‘liq boshqaruv"
-                  : user.role.name,
+                  ? "Bosh administrator · To‘liq boshqaruv"
+                  : uzLabel(user.role.name),
               Telegram: user.profile?.telegramChatId || "Bog‘lanmagan",
             }).map(([label, value]) => (
               <div key={label}>
@@ -468,7 +482,7 @@ export function DashboardApp({
               }
             }}
           >
-            Connect Telegram
+            Telegramni ulash
           </button>
           <button
             className="secondary"

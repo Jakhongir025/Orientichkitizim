@@ -470,3 +470,18 @@ Fon logotipi faqat login sahifasida qoldirildi. Secretlar uchun ignore qoidalari
 ## Administrator bilan bog‘lanish
 
 Login sahifasidagi **Administratorga yozish** tugmasi [Jaxongirning Telegram profilini](https://t.me/jakhongir_ps) ochadi. Bu yordam uchun shaxsiy profil, kompaniya botining tokeni yoki Mini App kirish manzili emas. Login/parol tiklashda administratorga yozing; bot tokenlari va shifrlash kalitlarini oddiy chat orqali yubormang.
+
+## VPNsiz xodimlar uchun yopiq kirish: Telegram ID ruxsat ro‘yxati
+
+HTTPS manzilni bilishning o‘zi tizimga kiritmaydi. Ommaviy ro‘yxatdan o‘tish mavjud emas; web login uchun administrator yaratgan faol hisob talab qilinadi.
+
+1. Super Admin xodim hisobini yaratadi va uning **raqamli Telegram User ID**sini profilga kiritadi. `@username` o‘rniga raqam yoziladi; ID aynan shu xodimga tegishli ekanini tekshiring.
+2. Xodim o‘z login/paroli bilan kiradi va **Connect Telegram**dan 10 daqiqalik kod oladi. Oldindan ID kiritilmagan bo‘lsa, tizim kod bermaydi.
+3. Xodim administrator belgilagan Telegram hisobidan kompaniya botining shaxsiy chatiga `/start KOD` yuboradi. Boshqa Telegram ID kodi bo‘lsa ham hisobni bog‘lay olmaydi.
+4. Worker ishlayotgan bo‘lsa bog‘lanish tasdiqlanadi va Telegram Chat ID saqlanadi. Shundan keyin bot menyusidan Mini App ochiladi.
+5. Mini App Telegram imzosini serverda tekshiradi; faqat faol va tasdiqlangan hisobga sessiya beradi. Oddiy Telegram IDni so‘rovga yozib yuborish kirish uchun yetarli emas.
+6. Super Admin IDni almashtirsa, avvalgi sessiyalar va ulanish kodlari bekor qilinadi; yangi Telegram hisobini qayta tasdiqlash kerak. Faolsizlantirilgan hisob kira olmaydi.
+
+Bu ketma-ketlik yuqoridagi Connect Telegram bosqichlariga ham tegishli. Login/parol bilan web kirish alohida saqlanadi; Telegram tasdiqlanishi web loginning majburiy ikkinchi omili emas. Botning asosiy ishlash oynasi Mini App; barcha web funksiyalar oddiy chat buyruqlari shaklida mavjud degani emas.
+
+Avtomobillar holati va PDF yuklab olish uchun `FOYDALANISH_QOLLANMASI.md`dagi yangi bo‘limga qarang.

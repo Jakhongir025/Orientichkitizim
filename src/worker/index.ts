@@ -1,3 +1,4 @@
+import { releaseExpiredCars } from "@/modules/cars/status-service";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/errors";
 import { deliverNotifications, pollTelegram } from "@/modules/telegram/service";
@@ -12,7 +13,12 @@ process.on("SIGINT", () => {
 async function main() {
   logger.info("worker_started");
   while (!stopping) {
-    for (const job of [scheduledTick, deliverNotifications, pollTelegram]) {
+    for (const job of [
+      releaseExpiredCars,
+      scheduledTick,
+      deliverNotifications,
+      pollTelegram,
+    ]) {
       try {
         await job();
       } catch {

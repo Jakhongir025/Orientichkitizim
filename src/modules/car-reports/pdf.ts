@@ -1,7 +1,10 @@
 import PDFDocument from "pdfkit";
 import path from "node:path";
 import type { CarReport } from "./service";
-export async function reportPdf(report: CarReport): Promise<Buffer> {
+export async function reportPdf(
+  report: CarReport,
+  heading = "RENTCAR / AVTOMOBIL HISOBOTI",
+): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4",
@@ -17,7 +20,7 @@ export async function reportPdf(report: CarReport): Promise<Buffer> {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
     doc.font(path.join(process.cwd(), "assets/fonts/NotoSans-Regular.ttf"));
-    doc.fillColor("#177c68").fontSize(12).text("RENTCAR / AVTOMOBIL HISOBOTI");
+    doc.fillColor("#177c68").fontSize(12).text(heading);
     doc.moveDown();
     doc.fillColor("#142438").fontSize(22).text(report.title);
     doc.fontSize(16).text(report.plate);

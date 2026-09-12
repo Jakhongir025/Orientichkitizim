@@ -18,7 +18,7 @@ export async function telegramLogin(initData: string) {
   if (!profile?.user.active || !profile.telegramVerified)
     throw new AppError(
       403,
-      "Telegram hisobingiz ulanmagan. Web profilingizdagi Connect Telegram orqali botga /start kodini yuboring.",
+      "Telegram hisobingiz ulanmagan. Web profilingizdagi Telegramni ulash orqali botga /start kodini yuboring.",
     );
   const token = `mini_${randomToken()}`;
   const expiresAt = new Date(Date.now() + 4 * 3600000);

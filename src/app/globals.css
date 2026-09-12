@@ -2287,3 +2287,11 @@ td small,
   gap: 10px;
   text-align: center;
 }
+
+.fleet-status-row { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:20px 0; border-bottom:1px solid var(--border, #dce3eb); }
+.fleet-status-buttons { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:12px 0; }
+.badge.with_owner, .badge.car_wash { background:#edf2fb; color:#344e78; }
+@media(max-width:800px) { .fleet-status-row { align-items:stretch; flex-direction:column; } .fleet-status-buttons .button { flex:1 1 120px; } }
+
+.notification-help { padding: 14px 20px; margin: 0; color: var(--muted, #64748b); font-size: 13px; }
+.notification-list .notification-message { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }

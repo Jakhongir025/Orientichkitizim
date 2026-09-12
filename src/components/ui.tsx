@@ -1,4 +1,5 @@
 "use client";
+import { uzLabel } from "@/lib/uzbek";
 import { Loader2, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 // Mini App session is kept only in memory, never in URLs or browser storage.
@@ -30,8 +31,11 @@ export const carName = (c?: { brand: string; model: string } | null) =>
   c ? `${c.brand} ${c.model}` : "—";
 export { clock, formatDate, today } from "@/lib/display-date";
 const names: Record<string, string> = {
+  AUTO_RELEASE: "Avtomatik bo‘shatildi",
   AVAILABLE: "Bo‘sh",
-  RENTED: "Ijarada",
+  RENTED: "Band",
+  WITH_OWNER: "Egasida",
+  CAR_WASH: "Avtomobil yuvish joyida",
   SERVICE: "Servisda",
   RESERVED: "Band qilingan",
   UNAVAILABLE: "Mavjud emas",
@@ -40,7 +44,7 @@ const names: Record<string, string> = {
   SENT: "Yuborildi",
   PENDING: "Navbatda",
   FAILED: "Xatolik",
-  SKIPPED: "Faqat web",
+  SKIPPED: "Faqat saytda",
   PROCESSING: "Yuborilmoqda",
   SUCCESS: "Sinxronlandi",
   NEVER: "Hali yo‘q",
@@ -50,7 +54,7 @@ export function Badge({ value }: { value: string }) {
   return (
     <span className={`badge ${value.toLowerCase()}`}>
       <i />
-      {names[value] || value}
+      {names[value] || uzLabel(value)}
     </span>
   );
 }
@@ -156,7 +160,7 @@ export function Select({
         <option value="">{optional ? "Bog‘lanmagan" : "Tanlang"}</option>
         {options.map((o) => (
           <option key={o.value} value={o.value}>
-            {o.label}
+            {uzLabel(o.label)}
           </option>
         ))}
       </select>

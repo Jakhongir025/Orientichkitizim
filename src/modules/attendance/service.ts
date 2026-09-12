@@ -40,13 +40,22 @@ export async function checkIn(actor: Actor, raw: unknown) {
     );
     if (input.late)
       await notify(tx, {
+        category: "ATTENDANCE",
         userId: actor.id,
         title: "Ishga kechikish",
-        message: `${actor.profile!.firstName} ${actor.profile!.lastName} — ${input.date} ${input.time}\nTimezone: ${input.timezone}\nSabab: ${input.lateReason}`,
+        message: `${actor.profile!.firstName} ${actor.profile!.lastName} — ${input.date} ${input.time}\nVaqt zonasi: ${input.timezone}\nSabab: ${input.lateReason}`,
         chatId:
           actor.profile!.office.telegramChatId ||
           process.env.TELEGRAM_ADMIN_CHAT_ID,
         dedupeKey: `late:${entry.id}`,
+      });
+    if (!input.late)
+      await notify(tx, {
+        category: "ATTENDANCE",
+        userId: actor.id,
+        title: "Ishga kelish qayd etildi",
+        message: `${actor.profile!.firstName} ${actor.profile!.lastName} - ${input.date} ${input.time} (${input.timezone})`,
+        dedupeKey: `checkin:${entry.id}`,
       });
     return entry;
   });
@@ -81,9 +90,10 @@ export async function checkOut(actor: Actor, raw: unknown) {
       ...data,
     });
     await notify(tx, {
+      category: "ATTENDANCE",
       userId: actor.id,
-      title: "🔴 Office closed",
-      message: `🔴 Office closed\nEmployee: ${actor.profile?.firstName} ${actor.profile?.lastName}\nTime: ${formatInTimeZone(input.instant, input.timezone, "dd.MM.yyyy HH:mm")}\nTimezone: ${input.timezone}\nOffice: ${actor.profile?.office.name}${input.time < "22:00" ? `\nErta ketish sababi: ${input.earlyLeaveReason}` : ""}`,
+      title: "🔴 Ofis yopildi",
+      message: `🔴 Ofis yopildi\nXodim: ${actor.profile?.firstName} ${actor.profile?.lastName}\nVaqt: ${formatInTimeZone(input.instant, input.timezone, "dd.MM.yyyy HH:mm")}\nVaqt zonasi: ${input.timezone}\nOfis: ${actor.profile?.office.name}${input.time < "22:00" ? `\nErta ketish sababi: ${input.earlyLeaveReason}` : ""}`,
       chatId:
         actor.profile?.office.telegramChatId ||
         process.env.TELEGRAM_ADMIN_CHAT_ID,

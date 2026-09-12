@@ -13,6 +13,8 @@ enum CarStatus {
   SERVICE
   RESERVED
   UNAVAILABLE
+  WITH_OWNER
+  CAR_WASH
 }
 
 enum AttendanceStatus {
@@ -44,6 +46,7 @@ model User {
   active        Boolean             @default(true)
   profile       EmployeeProfile?
   sessions      Session[]
+  daysOff       DayOff[]
   attendance    Attendance[]
   tasks         DailyTask[]
   services      CarService[]
@@ -155,6 +158,7 @@ model Car {
   color            String
   engine           String
   mileage          Int                @default(0)
+  occupiedUntil    DateTime?          @db.Timestamptz(3)
   status           CarStatus          @default(AVAILABLE)
   location         String
   notes            String?
@@ -172,8 +176,8 @@ model CarStatusHistory {
   id         String    @id @default(cuid())
   carId      String
   car        Car       @relation(fields: [carId], references: [id])
-  employeeId String
-  employee   User      @relation(fields: [employeeId], references: [id])
+  employeeId String?
+  employee   User?     @relation(fields: [employeeId], references: [id])
   fromStatus CarStatus
   toStatus   CarStatus
   createdAt  DateTime  @default(now()) @db.Timestamptz(3)
@@ -284,6 +288,7 @@ model RentalRecord {
 }
 
 model Notification {
+  category            String         @default("OTHER")
   requiredPermissions String[]       @default([])
   documentData        Bytes?
   documentName        String?
@@ -307,8 +312,8 @@ model Notification {
 
 model AuditLog {
   id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
   action     String
   entityType String
   entityId   String
@@ -329,4 +334,16 @@ model SystemSetting {
 model ScheduledJob {
   key         String   @id
   completedAt DateTime @default(now()) @db.Timestamptz(3)
+}
+
+model DayOff {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  date DateTime @db.Date
+  notes String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([userId, date])
+  @@index([date])
 }

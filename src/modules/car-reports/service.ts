@@ -1,3 +1,4 @@
+import { uzLabel } from "@/lib/uzbek";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { dateOnly, businessDate } from "@/lib/time";
@@ -83,7 +84,7 @@ export async function buildCarReport(
   lines.push("", "SERVIS TARIXI");
   for (const s of services)
     lines.push(
-      `${dayOf(s.date)} | ${s.serviceType.name} | ${s.mileage} km | ${name(s.employee.profile)}${s.notes ? `\n${s.notes}` : ""}`,
+      `${dayOf(s.date)} | ${uzLabel(s.serviceType.name)} | ${s.mileage} km | ${name(s.employee.profile)}${s.notes ? `\n${s.notes}` : ""}`,
     );
   if (!services.length) lines.push("Bu davrda servis qaydi yo‘q.");
   lines.push(
@@ -98,13 +99,15 @@ export async function buildCarReport(
   if (!tasks.length) lines.push("Bu davrda avtomobilga bog‘langan qayd yo‘q.");
   lines.push("", "HOLAT TARIXI");
   for (const s of statuses)
-    lines.push(`${stamp(s.createdAt)} | ${s.fromStatus} -> ${s.toStatus}`);
+    lines.push(
+      `${stamp(s.createdAt)} | ${uzLabel(s.fromStatus)} -> ${uzLabel(s.toStatus)}`,
+    );
   if (!statuses.length) lines.push("Holat o‘zgarishi qayd etilmagan.");
   if (hasPermission(permissions, "documents.read")) {
     lines.push("", "HUJJATLAR (joriy ma’lumot)");
     for (const d of documents)
       lines.push(
-        `${d.documentType.name} | ${d.number} | Amal muddati: ${dayOf(d.expiryDate)} | Oxirgi yangilanish: ${stamp(d.updatedAt)}`,
+        `${uzLabel(d.documentType.name)} | ${d.number} | Amal muddati: ${dayOf(d.expiryDate)} | Oxirgi yangilanish: ${stamp(d.updatedAt)}`,
       );
     if (!documents.length)
       lines.push("Ushbu davrga tegishli hujjat yangilanishi/muddati yo‘q.");
@@ -168,6 +171,7 @@ export async function enqueueReport(
   const text = reportText(report);
   if (format === "PDF") {
     await notify(tx, {
+      category: "REPORTS",
       userId,
       chatId,
       requiredPermissions: report.permissions || ["cars.read"],
@@ -181,6 +185,7 @@ export async function enqueueReport(
     const chunks = splitReport(text);
     for (let i = 0; i < chunks.length; i++)
       await notify(tx, {
+        category: "REPORTS",
         userId,
         chatId,
         requiredPermissions: report.permissions || ["cars.read"],

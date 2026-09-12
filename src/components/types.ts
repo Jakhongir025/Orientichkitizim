@@ -34,6 +34,8 @@ export type Car = {
   color: string;
   engine: string;
   mileage: number;
+  occupiedUntil?: string | null;
+  updatedAt?: string;
   status: string;
   location: string;
   notes?: string | null;
@@ -98,6 +100,7 @@ export type Report = {
   car: Car | null;
 };
 export type Notice = {
+  category: string;
   id: string;
   title: string;
   message: string;
@@ -108,7 +111,7 @@ export type Notice = {
 };
 export type Audit = {
   id: string;
-  user: User;
+  user: User | null;
   action: string;
   entityType: string;
   entityId: string;

@@ -1,3 +1,4 @@
+import { uzLabel } from "@/lib/uzbek";
 import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { businessDate, dateOnly, remainingDays } from "@/lib/time";
@@ -81,12 +82,13 @@ export async function checkExpirations(
     for (const user of people.values()) {
       if (!user.active) continue;
       await notify(tx, {
+        category: "DOCUMENTS",
         userId: user.id,
         title:
           days < 0
             ? "Hujjat muddati tugagan"
-            : `${doc.documentType.name}: ${days} kun qoldi`,
-        message: `🚨 DOCUMENT EXPIRATION\nCar: ${doc.car.brand} ${doc.car.model}\nPlate: ${doc.car.plateNumber}\nDocument: ${doc.documentType.name}\nExpiry: ${doc.expiryDate.toISOString().slice(0, 10)}\nRemaining: ${days} days\nAction: Please renew the document.`,
+            : `${uzLabel(doc.documentType.name)}: ${days} kun qoldi`,
+        message: `🚨 HUJJAT MUDDATI\nAvtomobil: ${doc.car.brand} ${doc.car.model}\nDavlat raqami: ${doc.car.plateNumber}\nHujjat: ${uzLabel(doc.documentType.name)}\nAmal muddati: ${doc.expiryDate.toISOString().slice(0, 10)}\nQolgan vaqt: ${days} kun\nHujjatni yangilang.`,
         chatId: user.profile?.telegramChatId || user.profile?.telegramUserId,
         dedupeKey: `document:${doc.id}:${doc.expiryDate.toISOString()}:${days < 0 ? "expired" : businessDate(now)}:${user.id}`,
       });

@@ -1,3 +1,5 @@
+import { handleNotificationCommand } from "./notification-command";
+import type { Prisma } from "@prisma/client";
 import { hasPermission } from "@/modules/auth/permissions";
 import { notify } from "@/modules/notifications/service";
 import { hashToken, randomToken } from "@/lib/crypto";
@@ -17,7 +19,7 @@ export async function sendTelegram(chatId: string, text: string) {
     },
   );
   const result = (await response.json()) as { ok?: boolean };
-  if (!response.ok || !result.ok) throw new Error("Telegram delivery failed");
+  if (!response.ok || !result.ok) throw new Error("Telegramga yuborilmadi");
 }
 export async function deliverNotifications() {
   for (let n = 0; n < 50; n++) {
@@ -55,7 +57,7 @@ export async function deliverNotifications() {
           data: {
             status: "SKIPPED",
             leaseUntil: null,
-            lastError: "Recipient access changed",
+            lastError: "Qabul qiluvchining ruxsatlari o‘zgargan",
           },
         });
         continue;
@@ -81,7 +83,7 @@ export async function deliverNotifications() {
         data: {
           status: "FAILED",
           leaseUntil: null,
-          lastError: "Telegram delivery failed",
+          lastError: "Telegramga yuborilmadi",
           nextAttemptAt: new Date(
             Date.now() + Math.min(3600000, 30000 * 2 ** row.attempts),
           ),
@@ -100,7 +102,7 @@ export async function createLink(userId: string) {
     if (!profile?.user.active || !profile.telegramUserId)
       throw new AppError(
         403,
-        "Avval Super Admin xodim profilingizga Telegram User ID kiritsin. Keyin ulanish kodini oling.",
+        "Avval Super Admin xodim profilingizga Telegram foydalanuvchi ID raqami kiritsin. Keyin ulanish kodini oling.",
       );
     await tx.telegramLinkToken.deleteMany({ where: { userId } });
     await tx.telegramLinkToken.create({
@@ -153,52 +155,9 @@ export async function pollTelegram() {
         const m = update.message;
         const match = m?.text?.match(/^\/start\s+([a-f0-9]{64})$/);
         if (m && match && m.chat.type === "private") {
-          const link = await tx.telegramLinkToken.findUnique({
-            where: { tokenHash: hashToken(match[1]) },
-            include: { user: { include: { profile: true } } },
-          });
-          const existing = await tx.employeeProfile.findUnique({
-            where: { telegramUserId: String(m.from.id) },
-          });
-          if (
-            link &&
-            link.expiresAt > new Date() &&
-            link.user.active &&
-            link.user.profile?.telegramUserId === String(m.from.id) &&
-            (!existing || existing.userId === link.userId)
-          ) {
-            const verified = await tx.employeeProfile.updateMany({
-              where: {
-                userId: link.userId,
-                telegramUserId: String(m.from.id),
-                user: { active: true },
-              },
-              data: {
-                telegramChatId: String(m.chat.id),
-                telegramUsername: m.from.username,
-                telegramVerified: true,
-              },
-            });
-            if (!verified.count) continue;
-            await tx.telegramLinkToken.delete({ where: { id: link.id } });
-            await notify(tx, {
-              userId: link.userId,
-              chatId: String(m.chat.id),
-              title: "Telegram ulandi",
-              message:
-                "Hisobingiz RentCar tizimiga ulandi. Bot menyusidagi «RentCarni ochish» tugmasini bosing.",
-              dedupeKey: `telegram-linked:${link.id}`,
-            });
-            await tx.auditLog.create({
-              data: {
-                userId: link.userId,
-                action: "TELEGRAM_VERIFIED",
-                entityType: "User",
-                entityId: link.userId,
-              },
-            });
-          }
+          await confirmTelegramLink(tx, match[1], m);
         }
+        if (m) await handleNotificationCommand(tx, update.update_id, m);
         await tx.systemSetting.upsert({
           where: { key: "telegramOffset" },
           create: { key: "telegramOffset", value: update.update_id + 1 },
@@ -228,5 +187,61 @@ export async function sendTelegramDocument(
   );
   const result = (await response.json()) as { ok: boolean };
   if (!response.ok || !result.ok)
-    throw new Error("Telegram document delivery failed");
+    throw new Error("Telegramga hujjat yuborilmadi");
+}
+
+export async function confirmTelegramLink(
+  tx: Prisma.TransactionClient,
+  token: string,
+  m: {
+    from: { id: number; username?: string };
+    chat: { id: number; type: string };
+  },
+) {
+  if (m.chat.type !== "private" || m.chat.id !== m.from.id) return false;
+  const link = await tx.telegramLinkToken.findUnique({
+    where: { tokenHash: hashToken(token) },
+    include: { user: { include: { profile: true } } },
+  });
+  const existing = await tx.employeeProfile.findUnique({
+    where: { telegramUserId: String(m.from.id) },
+  });
+  if (
+    link &&
+    link.expiresAt > new Date() &&
+    link.user.active &&
+    link.user.profile?.telegramUserId === String(m.from.id) &&
+    (!existing || existing.userId === link.userId)
+  ) {
+    const verified = await tx.employeeProfile.updateMany({
+      where: {
+        userId: link.userId,
+        telegramUserId: String(m.from.id),
+        user: { active: true },
+      },
+      data: {
+        telegramChatId: String(m.chat.id),
+        telegramUsername: m.from.username,
+        telegramVerified: true,
+      },
+    });
+    if (!verified.count) return false;
+    await tx.telegramLinkToken.delete({ where: { id: link.id } });
+    await notify(tx, {
+      userId: link.userId,
+      chatId: String(m.chat.id),
+      title: "Telegram ulandi",
+      message:
+        "Hisobingiz RentCar tizimiga ulandi. Bot menyusidagi «RentCarni ochish» tugmasini bosing.",
+      dedupeKey: `telegram-linked:${link.id}`,
+    });
+    await tx.auditLog.create({
+      data: {
+        userId: link.userId,
+        action: "TELEGRAM_VERIFIED",
+        entityType: "User",
+        entityId: link.userId,
+      },
+    });
+  }
 }
