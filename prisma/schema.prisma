@@ -38,6 +38,7 @@ model Role {
 }
 
 model User {
+  miniAppPin MiniAppPin?
   id            String              @id @default(cuid())
   login         String              @unique
   passwordHash  String
@@ -346,4 +347,13 @@ model DayOff {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
   @@unique([userId, date])
   @@index([date])
+}
+
+model MiniAppPin {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pinHash String
+  passwordBinding String
+  telegramUserId String
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }

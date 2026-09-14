@@ -1,4 +1,5 @@
 "use client";
+import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import { useEffect, useState } from "react";
 import { api, Badge, Modal, carName } from "./ui";
 import type { Car } from "./types";
@@ -11,11 +12,14 @@ const choices = [
 ] as const;
 export function FleetStatus({
   canManage,
+  telegramDelivery = false,
   onSaved,
 }: {
   canManage: boolean;
+  telegramDelivery?: boolean;
   onSaved: () => void;
 }) {
+  const [message, setMessage] = useState("");
   const [cars, setCars] = useState<Car[]>([]),
     [query, setQuery] = useState(""),
     [page, setPage] = useState(0),
@@ -59,8 +63,18 @@ export function FleetStatus({
     try {
       const params = new URLSearchParams({
         q: query,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezone: "Asia/Tashkent",
       });
+      if (telegramDelivery) {
+        await api("car-status/send-pdf", "POST", {
+          ...Object.fromEntries(params),
+          requestId: crypto.randomUUID(),
+        });
+        setMessage(
+          "PDF bot chatiga yuborish navbatiga qo‘shildi. Botda /start bosilgan va worker ishlayotgan bo‘lishi kerak.",
+        );
+        return;
+      }
       const file = await api<{ pdf: string; filename: string }>(
         `car-status/pdf?${params}`,
       );
@@ -90,7 +104,9 @@ export function FleetStatus({
         status,
         updatedAt: car.updatedAt,
         occupiedUntil:
-          status === "RENTED" && until ? new Date(until).toISOString() : null,
+          status === "RENTED" && until
+            ? fromZonedTime(until, "Asia/Tashkent").toISOString()
+            : null,
       });
       setSelected(null);
       setRevision((v) => v + 1);
@@ -109,7 +125,7 @@ export function FleetStatus({
         disabled={busy}
         onClick={() => void downloadPdf()}
       >
-        PDF yuklab olish
+        {telegramDelivery ? "PDFni botga yuborish" : "PDF yuklab olish"}
       </button>
       <p>PDFga qidiruvga mos barcha sahifalardagi avtomobillar kiritiladi.</p>
       <label className="field">
@@ -131,6 +147,7 @@ export function FleetStatus({
       >
         Yangilash
       </button>
+      {message && <p role="status">{message}</p>}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -149,7 +166,12 @@ export function FleetStatus({
               <Badge value={car.status} />
               {car.occupiedUntil && (
                 <p>
-                  Band: {new Date(car.occupiedUntil).toLocaleString("uz-UZ")}{" "}
+                  Band:{" "}
+                  {formatInTimeZone(
+                    car.occupiedUntil,
+                    "Asia/Tashkent",
+                    "dd.MM.yyyy HH:mm",
+                  )}{" "}
                   gacha
                 </p>
               )}
@@ -218,8 +240,8 @@ export function FleetStatus({
               />
             </label>
             <p>
-              Vaqt qurilmangizning mahalliy vaqti bo‘yicha. Muddat tugaganda
-              holat avtomatik Bo‘shga o‘zgaradi.
+              Vaqt Toshkent vaqti bo‘yicha. Muddat tugaganda holat avtomatik
+              Bo‘shga o‘zgaradi.
             </p>
             {error && (
               <p className="error" role="alert">

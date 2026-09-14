@@ -11,9 +11,7 @@ export function AttendanceForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [timezone] = useState(
-    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
-  );
+  const [timezone] = useState(() => "Asia/Tashkent");
   const [time, setTime] = useState(() =>
     formatInTimeZone(new Date(), timezone, "HH:mm"),
   );
@@ -80,7 +78,7 @@ export function AttendanceForm({
           </label>
         </div>
         <p className="timezone-note">
-          Qurilma vaqt zonasi: <strong>{timezone}</strong>
+          Toshkent vaqt zonasi: <strong>{timezone}</strong>
         </p>
         {(late || early) && (
           <label className="field">

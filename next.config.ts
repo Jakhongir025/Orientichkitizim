@@ -3,6 +3,7 @@ const production = process.env.NODE_ENV === "production";
 const config: NextConfig = {
   distDir: process.env.NEXT_BUILD_DIR || ".next",
   poweredByHeader: false,
+  devIndicators: false,
   serverExternalPackages: ["pdfkit"],
   async headers() {
     return [

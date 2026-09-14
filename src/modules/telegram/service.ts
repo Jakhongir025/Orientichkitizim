@@ -1,3 +1,4 @@
+import { isAttendanceManager } from "@/modules/attendance/recipients";
 import { handleNotificationCommand } from "./notification-command";
 import type { Prisma } from "@prisma/client";
 import { hasPermission } from "@/modules/auth/permissions";
@@ -38,6 +39,29 @@ export async function deliverNotifications() {
       });
     });
     if (!row) break;
+    if (row.dedupeKey.startsWith("document-daily:")) {
+      const document = await db.carDocument.findUnique({
+        where: { id: row.dedupeKey.split(":")[1] },
+        include: { car: true },
+      });
+      if (
+        !document ||
+        document.car.archived ||
+        !row.dedupeKey.startsWith(
+          `document-daily:${document.id}:${document.expiryDate.toISOString()}:`,
+        )
+      ) {
+        await db.notification.update({
+          where: { id: row.id },
+          data: {
+            status: "SKIPPED",
+            leaseUntil: null,
+            lastError: "Hujjat yangilangan yoki o‘chirilgan",
+          },
+        });
+        continue;
+      }
+    }
     if (row.userId) {
       const recipient = await db.user.findUnique({
         where: { id: row.userId },
@@ -45,6 +69,13 @@ export async function deliverNotifications() {
       });
       if (
         !recipient?.active ||
+        ((row.dedupeKey.startsWith("document-daily:") ||
+          row.dedupeKey.startsWith("document-summary:")) &&
+          (!recipient.profile?.telegramVerified ||
+            recipient.profile.telegramChatId !== row.chatId ||
+            recipient.profile.telegramUserId !== row.chatId)) ||
+        (row.dedupeKey.startsWith("attendance-pdf:") &&
+          !isAttendanceManager(recipient)) ||
         (row.requiredPermissions.length &&
           (!recipient.profile?.telegramVerified ||
             recipient.profile.telegramChatId !== row.chatId ||
@@ -156,6 +187,15 @@ export async function pollTelegram() {
         const match = m?.text?.match(/^\/start\s+([a-f0-9]{64})$/);
         if (m && match && m.chat.type === "private") {
           await confirmTelegramLink(tx, match[1], m);
+        }
+        if(m?.text && /^\/start(?:@[A-Za-z0-9_]+)?$/.test(m.text.trim()) && m.chat.type === "private" && m.from?.id===m.chat.id) {
+          const profile=await tx.employeeProfile.findUnique({where:{telegramUserId:String(m.from.id)},include:{user:true}});
+          await notify(tx,{
+            ...(profile?.user.active ? {userId:profile.userId} : {}),
+            chatId:String(m.chat.id),title:"OrientRentCar",
+            message:profile?.user.active ? "OrientRentCar tizimiga xush kelibsiz! Pastdagi «RentCarni ochish» menyusini bosing. Mini Appda administrator bergan login va parol bilan kiring." : "Tizim faqat kompaniya xodimlari uchun. Administrator Telegram ID raqamingizni profilingizga kiritishi va login/parol berishi kerak.",
+            dedupeKey:`telegram-start:${update.update_id}`,
+          });
         }
         if (m) await handleNotificationCommand(tx, update.update_id, m);
         await tx.systemSetting.upsert({

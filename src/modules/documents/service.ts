@@ -1,3 +1,4 @@
+import { reportPdf } from "@/modules/car-reports/pdf";
 import { uzLabel } from "@/lib/uzbek";
 import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
@@ -51,13 +52,19 @@ export async function checkExpirations(
   tx: Prisma.TransactionClient,
   now = new Date(),
   onlyDocumentId?: string,
+  requestId?: string,
+  recipientWhere?: Prisma.UserWhereInput,
 ) {
-  const setting = await tx.systemSetting.findUnique({
-    where: { key: "expirationIntervals" },
+  let queued = 0;
+  const people = await tx.user.findMany({
+    where: {
+      active: true,
+      ...(recipientWhere ?? {
+        role: { name: { in: ["SUPER_ADMIN", "ADMIN", "EMPLOYEE"] } },
+      }),
+    },
+    include: { profile: true },
   });
-  const intervals = Array.isArray(setting?.value)
-    ? setting.value.filter((v): v is number => typeof v === "number")
-    : [7, 3, 1, 0];
   const documents = await tx.carDocument.findMany({
     where: {
       car: { archived: false },
@@ -72,15 +79,28 @@ export async function checkExpirations(
   });
   for (const doc of documents) {
     const days = remainingDays(doc.expiryDate, now);
-    if (days >= 0 && !intervals.includes(days)) continue;
-    const people = new Map(
-      [doc.responsible, ...doc.recipients.map((r) => r.employee)].map((p) => [
-        p.id,
-        p,
-      ]),
-    );
-    for (const user of people.values()) {
-      if (!user.active) continue;
+    if (!requestId && days > 7) continue;
+    const message = `HUJJAT MUDDATI
+Avtomobil: ${doc.car.brand} ${doc.car.model}
+Davlat raqami: ${doc.car.plateNumber}
+Hujjat: ${uzLabel(doc.documentType.name)}
+Amal muddati: ${doc.expiryDate.toISOString().slice(0, 10)}
+${days < 0 ? `Muddat ${-days} kun oldin tugagan` : `${days} kun qoldi`}
+Hujjatni yangilang.`;
+    const pdf = await reportPdf({
+      title: "Hujjat muddati",
+      plate: doc.car.plateNumber,
+      period: businessDate(now),
+      generatedAt: businessDate(now) + " (Toshkent)",
+      lines: message.split("\n"),
+    });
+    for (const user of people) {
+      if (
+        !user.profile?.telegramVerified ||
+        !user.profile.telegramUserId ||
+        user.profile.telegramChatId !== user.profile.telegramUserId
+      )
+        continue;
       await notify(tx, {
         category: "DOCUMENTS",
         userId: user.id,
@@ -88,10 +108,77 @@ export async function checkExpirations(
           days < 0
             ? "Hujjat muddati tugagan"
             : `${uzLabel(doc.documentType.name)}: ${days} kun qoldi`,
-        message: `🚨 HUJJAT MUDDATI\nAvtomobil: ${doc.car.brand} ${doc.car.model}\nDavlat raqami: ${doc.car.plateNumber}\nHujjat: ${uzLabel(doc.documentType.name)}\nAmal muddati: ${doc.expiryDate.toISOString().slice(0, 10)}\nQolgan vaqt: ${days} kun\nHujjatni yangilang.`,
-        chatId: user.profile?.telegramChatId || user.profile?.telegramUserId,
-        dedupeKey: `document:${doc.id}:${doc.expiryDate.toISOString()}:${days < 0 ? "expired" : businessDate(now)}:${user.id}`,
+        message,
+        chatId: user.profile.telegramChatId,
+        documentData: new Uint8Array(pdf),
+        documentName: `hujjat-${doc.id}-${businessDate(now)}.pdf`,
+        dedupeKey: `document-daily:${doc.id}:${doc.expiryDate.toISOString()}:${requestId || businessDate(now)}:${user.id}`,
       });
+      queued++;
     }
   }
+  return { queued };
+}
+
+/** One PDF per recipient, containing all overdue and next-seven-day documents. */
+export async function sendExpirationSummary(
+  tx: Prisma.TransactionClient,
+  now: Date,
+  deliveryKey: string,
+  recipientWhere?: Prisma.UserWhereInput,
+) {
+  const documents = await tx.carDocument.findMany({
+    where: {
+      car: { archived: false },
+      expiryDate: {
+        lte: new Date(dateOnly(businessDate(now)).getTime() + 7 * 86400000),
+      },
+    },
+    include: { car: true, documentType: true },
+    orderBy: [{ expiryDate: "asc" }, { id: "asc" }],
+  });
+  if (!documents.length) return { queued: 0, documents: 0 };
+  const users = await tx.user.findMany({
+    where: {
+      active: true,
+      ...(recipientWhere ?? {
+        role: { name: { in: ["SUPER_ADMIN", "ADMIN", "EMPLOYEE"] } },
+      }),
+    },
+    include: { profile: true },
+  });
+  const lines = documents.flatMap((doc) => [
+    `${doc.car.brand} ${doc.car.model} — ${doc.car.plateNumber}`,
+    `${uzLabel(doc.documentType.name)} | ${doc.expiryDate.toISOString().slice(0, 10)} | ${remainingDays(doc.expiryDate, now) < 0 ? "Muddati tugagan" : `${remainingDays(doc.expiryDate, now)} kun qoldi`}`,
+    "",
+  ]);
+  const pdf = await reportPdf({
+    title: "Muddati yaqinlashgan va tugagan hujjatlar",
+    plate: `Jami: ${documents.length} ta hujjat`,
+    period: businessDate(now),
+    generatedAt: now.toISOString() + " (UTC)",
+    lines,
+  });
+  let queued = 0;
+  for (const user of users) {
+    const p = user.profile;
+    if (
+      !p?.telegramVerified ||
+      !p.telegramUserId ||
+      p.telegramChatId !== p.telegramUserId
+    )
+      continue;
+    await notify(tx, {
+      category: "DOCUMENTS",
+      userId: user.id,
+      chatId: p.telegramChatId,
+      title: "Hujjatlar umumiy hisoboti",
+      message: `${businessDate(now)} — muddati yaqinlashgan va tugagan ${documents.length} ta hujjat. To‘liq ro‘yxat PDFda.`,
+      documentData: new Uint8Array(pdf),
+      documentName: `hujjatlar-umumiy-${businessDate(now)}.pdf`,
+      dedupeKey: `document-summary:${businessDate(now)}:${deliveryKey}:${user.id}`,
+    });
+    queued++;
+  }
+  return { queued, documents: documents.length };
 }

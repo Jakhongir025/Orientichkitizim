@@ -1,4 +1,6 @@
 "use client";
+import { DocumentSendButton } from "./document-send-button";
+import { AttendanceReportButton } from "./attendance-report-button";
 import { DaysOff } from "./days-off";
 import { uzLabel } from "@/lib/uzbek";
 import { RecordActions } from "./record-actions";
@@ -172,6 +174,12 @@ export function Records({
     documents = rows as Document[];
   return (
     <section className={section === "cars" && grid ? "" : "panel"}>
+      {section === "documents" && (
+        <div className="filters">
+          <DocumentSendButton />
+        </div>
+      )}
+      {requestedSection === "attendance" && <AttendanceReportButton />}
       {requestedSection === "attendance" && (
         <DaysOff revision={revision} onSaved={refresh} />
       )}
@@ -560,14 +568,14 @@ export function Records({
                     <td>{formatDate(a.date)}</td>
                     <td>
                       {clock(a.checkIn, a.checkInTimezone)}
-                      <small>{a.checkInTimezone}</small>
+                      <small>Asia/Tashkent</small>
                     </td>
                     <td>
                       {clock(
                         a.checkOut,
                         a.checkOutTimezone || a.checkInTimezone,
                       )}
-                      <small>{a.checkOutTimezone}</small>
+                      <small>Asia/Tashkent</small>
                     </td>
                     <td>
                       <Badge value={a.status} />
@@ -730,6 +738,7 @@ export function Records({
                     </td>
                     <td>{fullName(d.responsible)}</td>
                     <td>
+                      <DocumentSendButton documentId={d.id} />
                       {can("*") && (
                         <button
                           className="text-button"

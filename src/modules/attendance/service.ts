@@ -44,9 +44,7 @@ export async function checkIn(actor: Actor, raw: unknown) {
         userId: actor.id,
         title: "Ishga kechikish",
         message: `${actor.profile!.firstName} ${actor.profile!.lastName} — ${input.date} ${input.time}\nVaqt zonasi: ${input.timezone}\nSabab: ${input.lateReason}`,
-        chatId:
-          actor.profile!.office.telegramChatId ||
-          process.env.TELEGRAM_ADMIN_CHAT_ID,
+        chatId: null,
         dedupeKey: `late:${entry.id}`,
       });
     if (!input.late)
@@ -94,9 +92,7 @@ export async function checkOut(actor: Actor, raw: unknown) {
       userId: actor.id,
       title: "🔴 Ofis yopildi",
       message: `🔴 Ofis yopildi\nXodim: ${actor.profile?.firstName} ${actor.profile?.lastName}\nVaqt: ${formatInTimeZone(input.instant, input.timezone, "dd.MM.yyyy HH:mm")}\nVaqt zonasi: ${input.timezone}\nOfis: ${actor.profile?.office.name}${input.time < "22:00" ? `\nErta ketish sababi: ${input.earlyLeaveReason}` : ""}`,
-      chatId:
-        actor.profile?.office.telegramChatId ||
-        process.env.TELEGRAM_ADMIN_CHAT_ID,
+      chatId: null,
       dedupeKey: `checkout:${entry.id}`,
     });
     return { ...entry, ...data };

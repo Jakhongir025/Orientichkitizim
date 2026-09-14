@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, randomUUID } from "node:crypto";
@@ -18,7 +19,7 @@ test(
     const user = await db.user.create({
       data: {
         login: `mini-${randomUUID()}`,
-        passwordHash: "unused-test",
+        passwordHash: await bcrypt.hash("Mini-test-password-123", 4),
         roleId: role.id,
         profile: {
           create: {
@@ -49,19 +50,26 @@ test(
         )
         .digest("hex"),
     );
+    const credentials = {
+      login: user.login,
+      password: "Mini-test-password-123",
+    };
     try {
-      await assert.rejects(telegramLogin(p.toString()), { status: 403 });
+      await assert.rejects(telegramLogin(p.toString(), credentials), {
+        status: 403,
+      });
       await db.employeeProfile.update({
         where: { userId: user.id },
         data: { telegramUserId: String(id) },
       });
-      await assert.rejects(telegramLogin(p.toString()), { status: 403 });
-      await db.employeeProfile.update({
-        where: { userId: user.id },
-        data: { telegramVerified: true },
+      await assert.rejects(
+        telegramLogin(p.toString(), { ...credentials, password: "wrong" }),
+        { status: 401 },
+      );
+      const session = await telegramLogin(p.toString(), credentials);
+      await assert.rejects(telegramLogin(p.toString(), credentials), {
+        status: 401,
       });
-      const session = await telegramLogin(p.toString());
-      await assert.rejects(telegramLogin(p.toString()), { status: 401 });
       assert.match(session.token, /^mini_[a-f0-9]{64}$/);
       const stored = await db.session.findUniqueOrThrow({
         where: { tokenHash: hashToken(session.token) },
@@ -77,7 +85,9 @@ test(
       });
       assert.equal(denied.status, 403);
       await db.user.update({ where: { id: user.id }, data: { active: false } });
-      await assert.rejects(telegramLogin(p.toString()), { status: 403 });
+      await assert.rejects(telegramLogin(p.toString(), credentials), {
+        status: 401,
+      });
       assert.equal(
         (
           await fetch("http://localhost:3000/api/me", {

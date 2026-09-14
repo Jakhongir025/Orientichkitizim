@@ -12,17 +12,36 @@ export async function api<T>(
   method = "GET",
   data?: unknown,
 ): Promise<T> {
-  const response = await fetch(`/api/${path}`, {
-    method,
-    headers: {
-      ...(data ? { "Content-Type": "application/json" } : {}),
-      ...(miniSession ? { Authorization: `Bearer ${miniSession}` } : {}),
-    },
-    body: data ? JSON.stringify(data) : undefined,
-  });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || "So‘rov bajarilmadi");
-  return result as T;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 45000);
+  try {
+    const response = await fetch(`/api/${path}`, {
+      method,
+      signal: controller.signal,
+      headers: {
+        ...(data ? { "Content-Type": "application/json" } : {}),
+        ...(miniSession ? { Authorization: `Bearer ${miniSession}` } : {}),
+      },
+      body: data ? JSON.stringify(data) : undefined,
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "So‘rov bajarilmadi");
+    return result as T;
+  } catch (error) {
+    if (controller.signal.aborted)
+      throw new Error(
+        method === "GET"
+          ? "Server javob bermadi. Internetni tekshirib qayta yangilang."
+          : "Server javobi kechikdi. Qayta yuborishdan oldin yozuv saqlanganini ro‘yxatdan tekshiring.",
+      );
+    if (error instanceof TypeError)
+      throw new Error(
+        "Serverga ulanib bo‘lmadi. Internet va sinov havolasini tekshiring.",
+      );
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 export const fullName = (u?: {
   profile?: { firstName: string; lastName: string } | null;
@@ -91,6 +110,7 @@ export function Modal({
           type="button"
           className="icon-button"
           onClick={onClose}
+          autoFocus
           aria-label="Yopish"
         >
           <X />

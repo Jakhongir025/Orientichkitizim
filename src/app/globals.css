@@ -2295,3 +2295,26 @@ td small,
 
 .notification-help { padding: 14px 20px; margin: 0; color: var(--muted, #64748b); font-size: 13px; }
 .notification-list .notification-message { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+
+/* Telegram-only bottom navigation and keyboard-aware form viewport. */
+.mini-app { padding-bottom: calc(100px + max(env(safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px))); }
+.mini-app .mini-tabs { position: fixed; z-index: 40; left: 50%; transform: translateX(-50%); bottom: 0; width: min(640px, 100%); box-sizing: border-box; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; margin: 0; padding: 8px 4px calc(8px + max(env(safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px))); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 20px #0000000d; }
+.mini-app .mini-tabs button { flex: none; min-width: 0; min-height: 52px; padding: 6px 1px; flex-direction: column; gap: 5px; font-size: clamp(9px, 2.5vw, 12px); line-height: 1.2; }
+.mini-app .mini-tabs button span { max-width: 100%; overflow-wrap: anywhere; }
+.mini-app .mini-car-link { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; color: var(--ink); cursor: pointer; }
+.mini-car-link strong { font-size: 18px; }
+.mini-app .filters { flex-wrap: wrap; align-items: end; }
+.mini-app .filters .field { flex: 1 1 180px; min-width: 0; }
+.mini-app input, .mini-app select, .mini-app textarea { max-width: 100%; min-width: 0; box-sizing: border-box; font-size: 16px; }
+.mini-app .profile-banner { flex-wrap: wrap; }
+.mini-app dialog { position: fixed; top: var(--mini-viewport-top, 0px); bottom: auto; margin: 8px auto; max-height: calc(var(--mini-viewport-height, 100dvh) - 16px); max-width: calc(100vw - 16px); padding: 16px; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; scroll-padding: 20px; }
+.mini-app dialog .form-grid { grid-template-columns: minmax(0, 1fr); }
+.mini-app[data-keyboard="open"] .mini-tabs, .mini-app:has(dialog[open]) .mini-tabs { visibility: hidden; pointer-events: none; }
+body:has(.mini-app) .theme-toggle { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+body:has(.mini-app[data-keyboard="open"]) .theme-toggle, body:has(.mini-app dialog[open]) .theme-toggle { display: none; }
+
+.mini-app .mini-tabs { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+/* Seven Mini App sections remain touch-friendly on narrow phones. */
+.mini-app .mini-tabs { display: flex; overflow-x: auto; justify-content: flex-start; }
+.mini-app .mini-tabs button { flex: 1 0 72px; }

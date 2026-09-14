@@ -100,7 +100,7 @@ test("SSR date output uses fixed Uzbek labels and Tashkent timezone", async () =
   assert.equal(formatDate(null), "—");
 });
 
-test("manual attendance uses entered local time, not submission hour", async () => {
+test("manual attendance uses Tashkent time regardless of device timezone", async () => {
   const { manualAttendanceTime } = await import(
     "../src/modules/attendance/validation"
   );
@@ -110,7 +110,7 @@ test("manual attendance uses entered local time, not submission hour", async () 
     recorded,
   );
   assert.equal(before.late, false);
-  assert.equal(before.instant.toISOString(), "2026-09-06T01:59:00.000Z");
+  assert.equal(before.instant.toISOString(), "2026-09-06T04:59:00.000Z");
   assert.equal(
     manualAttendanceTime(
       { date: "2026-09-06", time: "10:00", timezone: "Asia/Tashkent" },

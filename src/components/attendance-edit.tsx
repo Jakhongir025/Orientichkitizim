@@ -15,7 +15,7 @@ export function AttendanceEdit({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const local = (value: string, zone: string) =>
-    formatInTimeZone(value, zone, "yyyy-MM-dd'T'HH:mm");
+    formatInTimeZone(value, "Asia/Tashkent", "yyyy-MM-dd'T'HH:mm");
   return (
     <Modal title="Davomatni tahrirlash" onClose={onClose}>
       <form
@@ -61,7 +61,7 @@ export function AttendanceEdit({
           <Field
             label="Kelish vaqt zonasi"
             name="checkInTimezone"
-            value={entry.checkInTimezone}
+            value="Asia/Tashkent"
             required
           />
           <Field
@@ -80,7 +80,7 @@ export function AttendanceEdit({
           <Field
             label="Ketish vaqt zonasi"
             name="checkOutTimezone"
-            value={entry.checkOutTimezone || entry.checkInTimezone}
+            value="Asia/Tashkent"
             required
           />
           <Field

@@ -1,4 +1,5 @@
 "use client";
+import { AttendanceReportButton } from "./attendance-report-button";
 import { DaysOff } from "./days-off";
 import { uzLabel } from "@/lib/uzbek";
 import {
@@ -45,7 +46,7 @@ export function Overview({
     [checkModal, setCheckModal] = useState<"in" | "out" | null>(null);
   useEffect(() => {
     api<DashboardData>(
-      `dashboard?timezone=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`,
+      `dashboard?timezone=${encodeURIComponent("Asia/Tashkent")}`,
     )
       .then(setData)
       .catch((e) => setError(e.message));
@@ -102,6 +103,7 @@ export function Overview({
           ))}
         </div>
       )}
+      <AttendanceReportButton />
       <DaysOff revision={revision} onSaved={refresh} />
       <div className="checkin-strip">
         <div className="checkin-icon">

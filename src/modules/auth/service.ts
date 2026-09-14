@@ -63,7 +63,14 @@ export function checkOrigin(request: Request) {
   if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
   const expected = new URL(process.env.APP_URL || "http://localhost:3000")
     .origin;
-  if (request.headers.get("origin") !== expected)
+  const origins = new Set([expected]);
+  // Local development may use the browser and one explicitly configured HTTPS tunnel.
+  // Production accepts only APP_URL; never trust Host or arbitrary tunnel domains.
+  if (process.env.NODE_ENV === "development") {
+    origins.add("http://localhost:3000");
+    origins.add("http://127.0.0.1:3000");
+  }
+  if (!origins.has(request.headers.get("origin") || ""))
     throw new AppError(403, "So‘rov manbasi tasdiqlanmadi");
 }
 export async function login(loginName: string, password: string) {

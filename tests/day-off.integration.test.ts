@@ -51,11 +51,9 @@ test(
         let messages: string[] = [];
         await assert.rejects(
           db.$transaction(async (tx) => {
-            await attendanceReport(tx, closing, office.id, now);
-            const rows = await tx.notification.findMany({
-              where: { dedupeKey: { contains: office.id } },
-            });
-            messages = rows.map((r) => r.message);
+            messages = [
+              (await attendanceReport(tx, closing, office.id, now)).join("\n"),
+            ];
             throw rollback;
           }),
           (e) => e === rollback,
@@ -74,10 +72,14 @@ test(
       );
       const rest = await report(false, new Date(`${day}T07:00:00Z`));
       assert.ok(rest.some((m) => m.includes("Dam olish kuni")));
-      assert.ok(rest.every((m) => !m.includes("❌") && !m.includes("⚠️")));
+      assert.ok(
+        rest.every((m) => !m.includes("Qayd etilmagan") && !m.includes("⚠️")),
+      );
       const later = new Date(`${day}T07:00:00Z`);
       later.setUTCDate(later.getUTCDate() + 1);
-      assert.ok((await report(false, later)).some((m) => m.includes("❌")));
+      assert.ok(
+        (await report(false, later)).some((m) => m.includes("Qayd etilmagan")),
+      );
       await cancelDayOff(user, saved.id);
       assert.equal(await db.dayOff.count({ where: { userId: user.id } }), 0);
     } finally {

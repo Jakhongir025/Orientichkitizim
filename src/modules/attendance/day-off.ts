@@ -56,9 +56,7 @@ export async function saveDayOff(actor: Actor, raw: unknown) {
         userId: actor.id,
         title: "Kechki hisobotga qo‘shimcha",
         message: `${actor.profile?.firstName} ${actor.profile?.lastName}\nTelefon: ${actor.profile?.phone}\nSana: ${input.date}\nDam olish kuni`,
-        chatId:
-          actor.profile?.office.telegramChatId ||
-          process.env.TELEGRAM_ADMIN_CHAT_ID,
+        chatId: null,
         dedupeKey: `day-off-evening:${row.id}`,
       });
     }

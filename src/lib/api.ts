@@ -1,3 +1,10 @@
+import { attendanceReport } from "@/modules/attendance/report";
+import { isAttendanceManager } from "@/modules/attendance/recipients";
+import {
+  reportAudiences,
+  reportRecipientWhere,
+} from "@/modules/documents/audience";
+import { notify } from "@/modules/notifications/service";
 import { saveDayOff, cancelDayOff } from "@/modules/attendance/day-off";
 import {
   notificationWhere,
@@ -18,7 +25,7 @@ import { rateLimit } from "./rate-limit";
 import { buildCarReport, enqueueReport } from "@/modules/car-reports/service";
 import { reportQuery } from "@/modules/car-reports/period";
 import { reportPdf } from "@/modules/car-reports/pdf";
-import { telegramLogin } from "@/modules/telegram/auth";
+import { telegramLogin, telegramPinStatus } from "@/modules/telegram/auth";
 import {
   checkIn,
   checkOut,
@@ -40,7 +47,11 @@ import {
   carWhere,
   saveCar,
 } from "@/modules/cars/service";
-import { saveDocument } from "@/modules/documents/service";
+import {
+  checkExpirations,
+  sendExpirationSummary,
+  saveDocument,
+} from "@/modules/documents/service";
 import {
   createEmployee,
   updateEmployee,
@@ -103,12 +114,53 @@ async function handle(request: Request) {
           })
         : Response.json(result);
     }
+    if (
+      resource === "auth" &&
+      ["telegram-pin-status", "telegram-pin"].includes(key) &&
+      method === "POST"
+    ) {
+      await rateLimit("telegram-login-global", 300, 60000);
+      const input = z
+        .object({
+          initData: z.string().min(1).max(8192),
+          pin: z
+            .string()
+            .regex(/^\d{4}$/)
+            .optional(),
+        })
+        .strict()
+        .parse(await body(request));
+      if (key === "telegram-pin-status")
+        return Response.json(await telegramPinStatus(input.initData));
+      if (!input.pin) throw new AppError(400, "4 xonali PIN kiriting");
+      return Response.json(
+        await telegramLogin(input.initData, { pin: input.pin }),
+      );
+    }
     if (resource === "auth" && key === "telegram" && method === "POST") {
       await rateLimit("telegram-login-global", 300, 60000);
       const input = z
-        .object({ initData: z.string().min(1).max(8192) })
+        .object({
+          initData: z.string().min(1).max(8192),
+          newPin: z
+            .string()
+            .regex(/^\d{4}$/)
+            .optional(),
+          login: z.string().trim().min(1).max(60),
+          password: z
+            .string()
+            .min(1)
+            .max(72)
+            .refine((v) => Buffer.byteLength(v, "utf8") <= 72),
+        })
         .parse(await body(request));
-      return Response.json(await telegramLogin(input.initData));
+      return Response.json(
+        await telegramLogin(input.initData, {
+          newPin: input.newPin,
+          login: input.login,
+          password: input.password,
+        }),
+      );
     }
     const actor = await requireUser();
     await rateLimit(`api:${actor.id}`, 240, 60000);
@@ -133,10 +185,34 @@ async function handle(request: Request) {
       )
     )
       await releaseExpiredCars();
-    if (resource === "car-status" && key === "pdf" && method === "GET") {
+    if (
+      resource === "car-status" &&
+      ((key === "pdf" && method === "GET") ||
+        (key === "send-pdf" && method === "POST"))
+    ) {
+      const delivery = method === "POST";
+      const input = delivery
+        ? z
+            .object({
+              q: z.string().max(100).optional(),
+              timezone: z.string().max(100).optional(),
+              requestId: z.string().uuid(),
+            })
+            .strict()
+            .parse(await body(request))
+        : null;
+      if (
+        delivery &&
+        (!actor.profile?.telegramVerified || !actor.profile.telegramChatId)
+      )
+        throw new AppError(
+          400,
+          "Telegram hisobingiz bilan Mini Appga qayta kiring va botda /start bosing",
+        );
+      if (delivery) await releaseExpiredCars();
       allow(actor, "cars.read");
       await rateLimit(`fleet-pdf:${actor.id}`, 5, 60000);
-      const query = (q.get("q") || "").slice(0, 100);
+      const query = (input?.q ?? q.get("q") ?? "").slice(0, 100);
       const timezone = z
         .string()
         .max(100)
@@ -148,7 +224,7 @@ async function handle(request: Request) {
             return false;
           }
         }, "Timezone noto‘g‘ri")
-        .parse(q.get("timezone") || "Asia/Tashkent");
+        .parse(input?.timezone || q.get("timezone") || "Asia/Tashkent");
       const cars = await db.car.findMany({
         where: carWhere(query),
         orderBy: [{ brand: "asc" }, { model: "asc" }, { plateNumber: "asc" }],
@@ -166,8 +242,25 @@ async function handle(request: Request) {
           400,
           "PDF uchun qidiruvni aniqlashtiring (eng ko‘pi 5000 avtomobil)",
         );
+      const pdf = await fleetStatusPdf(cars, timezone, query);
+      if (input) {
+        await db.$transaction((tx) =>
+          notify(tx, {
+            userId: actor.id,
+            chatId: actor.profile!.telegramChatId!,
+            category: "REPORTS",
+            title: "Avtomobillar holati",
+            message: "Avtomobillarning joriy holati PDF hisoboti",
+            documentData: new Uint8Array(pdf),
+            documentName: "orientrentcar-avtomobillar-holati.pdf",
+            dedupeKey: `fleet-pdf:${actor.id}:${input.requestId}`,
+            requiredPermissions: ["cars.read"],
+          }),
+        );
+        return Response.json({ ok: true });
+      }
       return Response.json({
-        pdf: (await fleetStatusPdf(cars, timezone, query)).toString("base64"),
+        pdf: pdf.toString("base64"),
         filename: "orientrentcar-avtomobillar-holati.pdf",
       });
     }
@@ -329,9 +422,7 @@ async function handle(request: Request) {
         offices: permitted("employees.write") ? await db.office.findMany() : [],
       });
     if (resource === "dashboard" && method === "GET") {
-      const viewerTimezone = timezoneSchema.parse(
-        q.get("timezone") || "Asia/Tashkent",
-      );
+      const viewerTimezone = "Asia/Tashkent";
       const viewerDate = formatInTimeZone(
         new Date(),
         viewerTimezone,
@@ -504,7 +595,7 @@ async function handle(request: Request) {
         allow(actor, "attendance.write");
         return Response.json(await checkOut(actor, await body(request)));
       }
-      if (method === "GET")
+      if (method === "GET" && !key)
         return Response.json(
           await db.attendance.findMany({
             where: {
@@ -695,8 +786,102 @@ async function handle(request: Request) {
         );
       }
     }
+    if (
+      resource === "attendance" &&
+      key === "report-options" &&
+      method === "GET"
+    ) {
+      return Response.json({
+        allowed:
+          actor.role.name === "SUPER_ADMIN" ||
+          ["direktor", "director"].includes(
+            actor.profile?.position.trim().toLowerCase() || "",
+          ),
+      });
+    }
+    if (
+      resource === "attendance" &&
+      key === "send-report" &&
+      method === "POST"
+    ) {
+      if (
+        actor.role.name !== "SUPER_ADMIN" &&
+        !["direktor", "director"].includes(
+          actor.profile?.position.trim().toLowerCase() || "",
+        )
+      )
+        throw new AppError(403, "Faqat bosh administrator va direktor uchun");
+      if (!isAttendanceManager(actor))
+        throw new AppError(400, "Avval Telegram hisobingizni ulang");
+      const input = z
+        .object({ date, requestId: z.string().uuid() })
+        .strict()
+        .parse(await body(request));
+      if (input.date > businessDate())
+        throw new AppError(
+          400,
+          "Kelajak sanasi bo‘yicha hisobot olib bo‘lmaydi",
+        );
+      await rateLimit(`attendance-manual:${actor.id}`, 5, 60000);
+      await db.$transaction(
+        (tx) =>
+          attendanceReport(tx, true, undefined, new Date(), {
+            userId: actor.id,
+            ...input,
+          }),
+        { timeout: 60000 },
+      );
+      return Response.json({ ok: true });
+    }
     if (resource === "documents") {
       allow(actor, "documents.read");
+      if (key === "send-options" && method === "GET")
+        return Response.json(reportAudiences(actor));
+      if (key === "send-summary" && method === "POST") {
+        await rateLimit(`document-summary:${actor.id}`, 3, 60000);
+        const input = z
+          .object({
+            requestId: z.string().uuid(),
+            audience: z.enum(["SELF", "SELF_EMPLOYEES", "ALL"]).default("SELF"),
+          })
+          .strict()
+          .parse(await body(request));
+        const result = await db.$transaction(
+          (tx) =>
+            sendExpirationSummary(
+              tx,
+              new Date(),
+              `${actor.id}:${input.requestId}`,
+              reportRecipientWhere(actor, input.audience),
+            ),
+          { timeout: 60000 },
+        );
+        return Response.json(result);
+      }
+      if (key === "send-reminders" && method === "POST") {
+        await rateLimit(`document-manual:${actor.id}`, 5, 60000);
+        const input = z
+          .object({
+            documentId: z.string().min(1),
+            audience: z.enum(["SELF", "SELF_EMPLOYEES", "ALL"]).default("SELF"),
+            requestId: z.string().uuid(),
+          })
+          .strict()
+          .parse(await body(request));
+        const result = await db.$transaction(
+          (tx) =>
+            checkExpirations(
+              tx,
+              new Date(),
+              input.documentId,
+              `${actor.id}:${input.requestId}`,
+              reportRecipientWhere(actor, input.audience),
+            ),
+          { timeout: 60000 },
+        );
+        return Response.json(result);
+      }
+
       if (method === "GET")
         return Response.json(
           await db.carDocument.findMany({

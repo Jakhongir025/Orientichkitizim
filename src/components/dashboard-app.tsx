@@ -122,10 +122,7 @@ export function DashboardApp({
   initialDate: string;
 }) {
   const [timezone, setTimezone] = useState("Asia/Tashkent");
-  useEffect(
-    () => setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone),
-    [],
-  );
+  useEffect(() => setTimezone("Asia/Tashkent"), []);
   const path = usePathname().split("/").filter(Boolean),
     section = path[0] || "",
     carId = section === "cars" ? path[1] : undefined;

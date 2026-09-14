@@ -27,13 +27,13 @@ export function formatDate(
   if (Number.isNaN(instant.getTime())) return "—";
   const [day, month, year, hour, minute] = formatInTimeZone(
     instant,
-    timezone,
+    TIMEZONE,
     "dd/MM/yyyy/HH/mm",
   ).split("/");
   return `${day}-${MONTHS[Number(month) - 1]}, ${year}${withTime ? ` ${hour}:${minute}` : ""}`;
 }
 export function clock(value?: string | null, timezone = TIMEZONE): string {
-  return value ? formatInTimeZone(new Date(value), timezone, "HH:mm") : "—";
+  return value ? formatInTimeZone(new Date(value), TIMEZONE, "HH:mm") : "—";
 }
 export function today(): string {
   return formatInTimeZone(new Date(), TIMEZONE, "yyyy-MM-dd");

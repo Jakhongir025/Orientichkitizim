@@ -21,7 +21,7 @@ export const attendanceInput = z.object({
   lateReason: z.string().trim().max(1000).optional(),
 });
 export function manualAttendanceTime(raw: unknown, recordedAt = new Date()) {
-  const input = attendanceInput.parse(raw);
+  const input = { ...attendanceInput.parse(raw), timezone: "Asia/Tashkent" };
   const local = `${input.date}T${input.time}`;
   const instant = fromZonedTime(`${local}:00`, input.timezone);
   if (formatInTimeZone(instant, input.timezone, "yyyy-MM-dd'T'HH:mm") !== local)
